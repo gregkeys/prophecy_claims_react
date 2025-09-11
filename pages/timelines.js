@@ -152,11 +152,19 @@ function TimelineCard({ timeline, index, onClick }) {
       </div>
       
       <div className="mt-4 pt-4 border-t border-[#87ceeb]/20">
-        <div className="flex items-center space-x-2">
-          <span className="text-xs text-[#2c5f6f]">Style:</span>
-          <span className="text-xs font-medium text-[#1e3a5f] capitalize">
-            {timeline.style} • {timeline.orientation}
-          </span>
+        <div className="flex items-center justify-between gap-4">
+          <div className="flex items-center space-x-2 flex-1">
+            <span className="text-xs text-[#2c5f6f]">Style:</span>
+            <span className="text-xs font-medium text-[#1e3a5f] capitalize">
+              {timeline.style} • {timeline.orientation}
+            </span>
+          </div>
+          <Link 
+            href={`/timeline/${timeline.id}`}
+            className="text-xs text-[#d4a574] hover:text-[#e89547] transition-colors font-medium whitespace-nowrap"
+          >
+            Full View →
+          </Link>
         </div>
       </div>
     </div>
@@ -259,7 +267,7 @@ function TimelineModal({ timeline, onClose }) {
         <div className="bg-[#faf6f0] rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden">
           {/* Header */}
           <div className="bg-gradient-to-r from-[#1e3a5f] to-[#2c5f6f] p-6 text-white">
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between mb-4">
               <div>
                 <h2 className="font-display text-2xl font-bold">{timeline.name}</h2>
                 {timeline.description && (
@@ -272,6 +280,16 @@ function TimelineModal({ timeline, onClose }) {
               >
                 ×
               </button>
+            </div>
+            
+            {/* Action Buttons */}
+            <div className="flex items-center">
+              <Link 
+                href={`/timeline/${timeline.id}`}
+                className="prophecy-button-sm px-6 py-2 text-sm"
+              >
+                View Full Timeline
+              </Link>
             </div>
           </div>
 

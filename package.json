@@ -1,0 +1,38 @@
+{
+  "name": "prophecy-claims-react",
+  "version": "1.0.0",
+  "description": "Divine timeline platform for tracking prophetic claims and revelations",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "export": "next build && next export"
+  },
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=8.0.0"
+  },
+  "keywords": [
+    "prophecy",
+    "timeline",
+    "divine",
+    "revelation",
+    "nextjs",
+    "react"
+  ],
+  "author": "Prophecy Claims",
+  "license": "MIT",
+  "dependencies": {
+    "@supabase/supabase-js": "^2.0.0",
+    "next": "^14.0.0",
+    "react": "^19.1.1",
+    "react-dom": "^19.1.1",
+    "recharts": "^2.0.0",
+    "tailwindcss": "^3.0.0"
+  },
+  "devDependencies": {
+    "autoprefixer": "^10.4.21",
+    "postcss": "^8.5.6"
+  }
+}

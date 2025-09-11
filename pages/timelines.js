@@ -1,6 +1,6 @@
 import Head from 'next/head';
 import Link from 'next/link';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { createClient } from '@supabase/supabase-js';
 
 // Supabase client
@@ -153,12 +153,11 @@ function TimelineModal({ timeline, onClose }) {
   const [submissions, setSubmissions] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    fetchTimelineSubmissions();
-  }, [timeline.id]);
-
-  const fetchTimelineSubmissions = async () => {
-    if (!supabase) return;
+  const fetchTimelineSubmissions = useCallback(async () => {
+    if (!supabase) {
+      setLoading(false);
+      return;
+    }
     
     try {
       // First get timeline submissions with order
@@ -198,7 +197,11 @@ function TimelineModal({ timeline, onClose }) {
     } finally {
       setLoading(false);
     }
-  };
+  }, [timeline.id]);
+
+  useEffect(() => {
+    fetchTimelineSubmissions();
+  }, [fetchTimelineSubmissions]);
 
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto bg-black/80 backdrop-blur-sm">

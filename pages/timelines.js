@@ -8,6 +8,15 @@ const supabase = process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC
   ? createClient(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY)
   : null;
 
+// Debug environment variables (remove in production)
+if (typeof window !== 'undefined') {
+  console.log('Client-side env check:', {
+    hasUrl: !!process.env.NEXT_PUBLIC_SUPABASE_URL,
+    hasKey: !!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+    supabaseClient: !!supabase
+  });
+}
+
 export default function Timelines({ timelines }) {
   const [isVisible, setIsVisible] = useState(false);
   const [selectedTimeline, setSelectedTimeline] = useState(null);
@@ -152,12 +161,24 @@ function TimelineCard({ timeline, index, onClick }) {
 function TimelineModal({ timeline, onClose }) {
   const [submissions, setSubmissions] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   const fetchTimelineSubmissions = useCallback(async () => {
+    console.log('Modal fetch attempt:', {
+      supabaseExists: !!supabase,
+      timelineId: timeline.id,
+      envUrl: !!process.env.NEXT_PUBLIC_SUPABASE_URL,
+      envKey: !!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+    });
+    
     if (!supabase) {
+      setError('Supabase connection not available. Check environment variables.');
       setLoading(false);
       return;
     }
+    
+    setError(null);
+    setLoading(true);
     
     try {
       // First get timeline submissions with order
@@ -192,8 +213,9 @@ function TimelineModal({ timeline, onClose }) {
       }).sort((a, b) => a.order_position - b.order_position) || [];
       
       setSubmissions(submissionsWithOrder);
-    } catch (error) {
-      console.error('Error fetching submissions:', error);
+    } catch (err) {
+      console.error('Error fetching submissions:', err);
+      setError(`Failed to load timeline data: ${err.message}`);
     } finally {
       setLoading(false);
     }
@@ -231,6 +253,24 @@ function TimelineModal({ timeline, onClose }) {
               <div className="text-center py-12">
                 <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#1e3a5f] mx-auto"></div>
                 <p className="text-[#2c5f6f] mt-4">Loading timeline...</p>
+              </div>
+            ) : error ? (
+              <div className="text-center py-12">
+                <div className="text-6xl mb-4">⚠️</div>
+                <h3 className="text-xl font-bold text-red-600 mb-2">Error Loading Timeline</h3>
+                <p className="text-[#2c5f6f] mb-4">{error}</p>
+                <button 
+                  onClick={fetchTimelineSubmissions}
+                  className="prophecy-button text-sm px-4 py-2"
+                >
+                  Retry
+                </button>
+              </div>
+            ) : submissions.length === 0 ? (
+              <div className="text-center py-12">
+                <div className="text-6xl mb-4">📜</div>
+                <h3 className="text-xl font-bold text-[#1e3a5f] mb-2">No Timeline Entries</h3>
+                <p className="text-[#2c5f6f]">This timeline doesn't have any entries yet.</p>
               </div>
             ) : (
               <TimelineView submissions={submissions} configuration={timeline} />

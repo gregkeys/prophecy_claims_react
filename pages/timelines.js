@@ -305,9 +305,14 @@ function TimelineItem({ submission, index }) {
 
 export async function getServerSideProps() {
   try {
-    if (supabase) {
+    // Create server-side Supabase client
+    const serverSupabase = process.env.SUPABASE_URL && process.env.SUPABASE_ANON_KEY
+      ? createClient(process.env.SUPABASE_URL, process.env.SUPABASE_ANON_KEY)
+      : null;
+
+    if (serverSupabase) {
       // Fetch timelines with configurations
-      const { data: timelines } = await supabase
+      const { data: timelines } = await serverSupabase
         .from('timelines')
         .select(`
           *,
@@ -317,10 +322,12 @@ export async function getServerSideProps() {
         .order('featured', { ascending: false })
         .order('created_at', { ascending: false });
 
+      console.log('Fetched timelines:', timelines);
+
       // Get submission counts for each timeline
       const timelinesWithCounts = await Promise.all(
         (timelines || []).map(async (timeline) => {
-          const { count } = await supabase
+          const { count } = await serverSupabase
             .from('timeline_submissions')
             .select('*', { count: 'exact', head: true })
             .eq('timeline_id', timeline.id);
@@ -334,6 +341,7 @@ export async function getServerSideProps() {
         })
       );
 
+      console.log('Final timelines with counts:', timelinesWithCounts);
       return { props: { timelines: timelinesWithCounts } };
     }
     return { props: { timelines: [] } };

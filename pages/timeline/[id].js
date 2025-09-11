@@ -366,14 +366,19 @@ function GridItem({ submission, index }) {
 
 export async function getServerSideProps({ params }) {
   try {
-    if (!supabase) {
+    // Create server-side Supabase client
+    const serverSupabase = process.env.SUPABASE_URL && process.env.SUPABASE_ANON_KEY
+      ? createClient(process.env.SUPABASE_URL, process.env.SUPABASE_ANON_KEY)
+      : null;
+
+    if (!serverSupabase) {
       return { notFound: true };
     }
 
     const { id } = params;
 
     // Fetch timeline details
-    const { data: timeline } = await supabase
+    const { data: timeline } = await serverSupabase
       .from('timelines')
       .select(`
         *,
@@ -387,7 +392,7 @@ export async function getServerSideProps({ params }) {
     }
 
     // First get timeline submissions with order
-    const { data: timelineSubmissions } = await supabase
+    const { data: timelineSubmissions } = await serverSupabase
       .from('timeline_submissions')
       .select('submission_id, order_position')
       .eq('timeline_id', id)
@@ -397,7 +402,7 @@ export async function getServerSideProps({ params }) {
     if (timelineSubmissions && timelineSubmissions.length > 0) {
       // Then get the submissions with content
       const submissionIds = timelineSubmissions.map(ts => ts.submission_id);
-      const { data: submissionsData } = await supabase
+      const { data: submissionsData } = await serverSupabase
         .from('enhanced_submissions')
         .select(`
           *,

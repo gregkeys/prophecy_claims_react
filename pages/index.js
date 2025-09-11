@@ -87,9 +87,9 @@ export default function Home({ claims }) {
               >
                 Create Your Timeline
               </a>
-              <button className="bg-transparent border-2 border-[#faf6f0] text-[#faf6f0] px-8 py-4 rounded-full font-semibold text-lg hover:bg-[#faf6f0] hover:text-[#1e3a5f] transition-all duration-300">
-                Explore Claims
-              </button>
+              <Link href="/timelines" className="bg-transparent border-2 border-[#faf6f0] text-[#faf6f0] px-8 py-4 rounded-full font-semibold text-lg hover:bg-[#faf6f0] hover:text-[#1e3a5f] transition-all duration-300 inline-block text-center no-underline">
+                Explore Timelines
+              </Link>
             </div>
 
             <div className="text-[#faf6f0] opacity-80">
@@ -260,8 +260,8 @@ export default function Home({ claims }) {
             <div>
               <h4 className="font-semibold mb-4">Platform</h4>
               <ul className="space-y-2 text-sm text-[#87ceeb]">
-                <li><a href="#" className="hover:text-[#d4a574] transition-colors">Create Timeline</a></li>
-                <li><a href="#" className="hover:text-[#d4a574] transition-colors">Browse Claims</a></li>
+                <li><a href="https://app.prophecy.claims" target="_blank" rel="noopener noreferrer" className="hover:text-[#d4a574] transition-colors">Create Timeline</a></li>
+                <li><Link href="/timelines" className="hover:text-[#d4a574] transition-colors">Browse Timelines</Link></li>
                 <li><a href="#" className="hover:text-[#d4a574] transition-colors">Community</a></li>
               </ul>
             </div>

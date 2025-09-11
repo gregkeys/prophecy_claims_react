@@ -11,8 +11,10 @@ const supabase = process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC
 export default function Timelines({ timelines }) {
   const [isVisible, setIsVisible] = useState(false);
   const [selectedTimeline, setSelectedTimeline] = useState(null);
+  const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
+    setMounted(true);
     setIsVisible(true);
   }, []);
 
@@ -72,7 +74,7 @@ export default function Timelines({ timelines }) {
 
           {/* Timeline Cards Grid */}
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8 max-w-6xl mx-auto">
-            {timelines.map((timeline, index) => (
+            {mounted && timelines.map((timeline, index) => (
               <TimelineCard 
                 key={timeline.id} 
                 timeline={timeline} 
@@ -128,7 +130,11 @@ function TimelineCard({ timeline, index, onClick }) {
       
       <div className="flex items-center justify-between text-xs text-[#2c5f6f]">
         <span>{timeline.submission_count} entries</span>
-        <span>{new Date(timeline.created_at).toLocaleDateString()}</span>
+        <span>{new Date(timeline.created_at).toLocaleDateString('en-US', { 
+          year: 'numeric', 
+          month: 'short', 
+          day: 'numeric' 
+        })}</span>
       </div>
       
       <div className="mt-4 pt-4 border-t border-[#87ceeb]/20">
@@ -322,8 +328,6 @@ export async function getServerSideProps() {
         .order('featured', { ascending: false })
         .order('created_at', { ascending: false });
 
-      console.log('Fetched timelines:', timelines);
-
       // Get submission counts for each timeline
       const timelinesWithCounts = await Promise.all(
         (timelines || []).map(async (timeline) => {
@@ -341,7 +345,6 @@ export async function getServerSideProps() {
         })
       );
 
-      console.log('Final timelines with counts:', timelinesWithCounts);
       return { props: { timelines: timelinesWithCounts } };
     }
     return { props: { timelines: [] } };

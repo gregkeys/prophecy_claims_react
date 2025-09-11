@@ -15,8 +15,10 @@ export default function TimelineDetail({ timeline, submissions }) {
   const [viewMode, setViewMode] = useState('timeline');
   const [searchTerm, setSearchTerm] = useState('');
   const [filteredSubmissions, setFilteredSubmissions] = useState(submissions);
+  const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
+    setMounted(true);
     setIsVisible(true);
   }, []);
 
@@ -138,7 +140,11 @@ export default function TimelineDetail({ timeline, submissions }) {
               <div className="flex justify-center items-center space-x-8 text-[#87ceeb]">
                 <span className="text-sm">{submissions.length} entries</span>
                 <span className="text-sm">•</span>
-                <span className="text-sm">Created {new Date(timeline.created_at).toLocaleDateString()}</span>
+                <span className="text-sm">Created {new Date(timeline.created_at).toLocaleDateString('en-US', {
+                  year: 'numeric',
+                  month: 'short',
+                  day: 'numeric'
+                })}</span>
               </div>
             </div>
 
@@ -189,7 +195,12 @@ export default function TimelineDetail({ timeline, submissions }) {
       {/* Timeline Content */}
       <section className="py-12 px-4 bg-[#faf6f0] min-h-screen">
         <div className="max-w-6xl mx-auto">
-          {filteredSubmissions.length === 0 ? (
+          {!mounted ? (
+            <div className="text-center py-12">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#1e3a5f] mx-auto"></div>
+              <p className="text-[#2c5f6f] mt-4">Loading timeline...</p>
+            </div>
+          ) : filteredSubmissions.length === 0 ? (
             <div className="text-center py-12">
               <div className="text-6xl mb-4">📜</div>
               <h3 className="text-2xl font-bold text-[#1e3a5f] mb-2">
@@ -304,7 +315,11 @@ function TimelineItem({ submission, index }) {
         
         <div className="flex items-center justify-between pt-4 border-t border-[#87ceeb]/20">
           <div className="flex items-center space-x-4 text-xs text-[#2c5f6f]">
-            <span>📅 {new Date(submission.created_at).toLocaleDateString()}</span>
+            <span>📅 {new Date(submission.created_at).toLocaleDateString('en-US', {
+              year: 'numeric',
+              month: 'short',
+              day: 'numeric'
+            })}</span>
             <span>•</span>
             <span>📝 {submission.submission_content?.length || 0} items</span>
           </div>
@@ -357,7 +372,11 @@ function GridItem({ submission, index }) {
       )}
       
       <div className="flex items-center justify-between text-xs text-[#2c5f6f] pt-3 border-t border-[#87ceeb]/20">
-        <span>{new Date(submission.created_at).toLocaleDateString()}</span>
+        <span>{new Date(submission.created_at).toLocaleDateString('en-US', {
+          year: 'numeric',
+          month: 'short',
+          day: 'numeric'
+        })}</span>
         <span>{submission.submission_content?.length || 0} items</span>
       </div>
     </div>

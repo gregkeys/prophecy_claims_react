@@ -3,19 +3,24 @@ import Link from 'next/link';
 import { useState, useEffect, useCallback } from 'react';
 import { createClient } from '@supabase/supabase-js';
 
-// Supabase client
-const supabase = process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-  ? createClient(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY)
-  : null;
+// Supabase client with fallback for environment variables
+const getSupabaseClient = () => {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  
+  if (typeof window !== 'undefined') {
+    console.log('Environment variables check:', {
+      url: url ? 'present' : 'missing',
+      key: key ? 'present' : 'missing',
+      urlValue: url,
+      keyLength: key ? key.length : 0
+    });
+  }
+  
+  return url && key ? createClient(url, key) : null;
+};
 
-// Debug environment variables (remove in production)
-if (typeof window !== 'undefined') {
-  console.log('Client-side env check:', {
-    hasUrl: !!process.env.NEXT_PUBLIC_SUPABASE_URL,
-    hasKey: !!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
-    supabaseClient: !!supabase
-  });
-}
+const supabase = getSupabaseClient();
 
 export default function Timelines({ timelines }) {
   const [isVisible, setIsVisible] = useState(false);
@@ -182,26 +187,49 @@ function TimelineModal({ timeline, onClose }) {
     
     try {
       // First get timeline submissions with order
-      const { data: timelineSubmissions } = await supabase
+      const { data: timelineSubmissions, error: timelineError } = await supabase
         .from('timeline_submissions')
         .select('submission_id, order_position')
         .eq('timeline_id', timeline.id)
         .order('order_position');
 
+      console.log('Timeline submissions query result:', {
+        data: timelineSubmissions,
+        error: timelineError,
+        count: timelineSubmissions?.length || 0
+      });
+
+      if (timelineError) {
+        throw new Error(`Timeline submissions error: ${timelineError.message}`);
+      }
+
       if (!timelineSubmissions || timelineSubmissions.length === 0) {
+        console.log('No timeline submissions found for timeline:', timeline.id);
         setSubmissions([]);
         return;
       }
 
       // Then get the submissions with content
       const submissionIds = timelineSubmissions.map(ts => ts.submission_id);
-      const { data: submissions } = await supabase
+      console.log('Fetching submissions for IDs:', submissionIds);
+      
+      const { data: submissions, error: submissionsError } = await supabase
         .from('enhanced_submissions')
         .select(`
           *,
           submission_content(*)
         `)
         .in('id', submissionIds);
+
+      console.log('Enhanced submissions query result:', {
+        data: submissions,
+        error: submissionsError,
+        count: submissions?.length || 0
+      });
+
+      if (submissionsError) {
+        throw new Error(`Enhanced submissions error: ${submissionsError.message}`);
+      }
 
       // Merge and sort by order_position
       const submissionsWithOrder = submissions?.map(submission => {

@@ -16,11 +16,44 @@ export default function TimelineDetail({ timeline, submissions }) {
   const [searchTerm, setSearchTerm] = useState('');
   const [filteredSubmissions, setFilteredSubmissions] = useState(submissions);
   const [mounted, setMounted] = useState(false);
+  const [isFullScreen, setIsFullScreen] = useState(false);
+  const [zoomLevel, setZoomLevel] = useState(1);
 
   useEffect(() => {
     setMounted(true);
     setIsVisible(true);
   }, []);
+
+  // Keyboard shortcuts for full-screen and zoom
+  useEffect(() => {
+    const handleKeyPress = (e) => {
+      if (e.key === 'f' || e.key === 'F') {
+        e.preventDefault();
+        setIsFullScreen(!isFullScreen);
+      } else if (e.key === '=' || e.key === '+') {
+        e.preventDefault();
+        setZoomLevel(prev => Math.min(prev + 0.2, 3));
+      } else if (e.key === '-') {
+        e.preventDefault();
+        setZoomLevel(prev => Math.max(prev - 0.2, 0.5));
+      } else if (e.key === '0') {
+        e.preventDefault();
+        setZoomLevel(1);
+      } else if (e.key === 'Escape') {
+        setIsFullScreen(false);
+      }
+    };
+
+    if (mounted) {
+      window.addEventListener('keydown', handleKeyPress);
+      return () => window.removeEventListener('keydown', handleKeyPress);
+    }
+  }, [mounted, isFullScreen]);
+
+  const handleZoomIn = () => setZoomLevel(prev => Math.min(prev + 0.2, 3));
+  const handleZoomOut = () => setZoomLevel(prev => Math.max(prev - 0.2, 0.5));
+  const handleZoomReset = () => setZoomLevel(1);
+  const toggleFullScreen = () => setIsFullScreen(!isFullScreen);
 
   useEffect(() => {
     if (searchTerm) {
@@ -164,27 +197,47 @@ export default function TimelineDetail({ timeline, submissions }) {
                 </div>
               </div>
 
-              {/* View Mode Toggle */}
-              <div className="flex items-center bg-white/10 backdrop-blur-sm rounded-full p-1">
+              {/* Controls Group */}
+              <div className="flex items-center space-x-4">
+                {/* View Mode Toggle */}
+                <div className="flex items-center bg-white/10 backdrop-blur-sm rounded-full p-1">
+                  <button
+                    onClick={() => setViewMode('timeline')}
+                    className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${
+                      viewMode === 'timeline'
+                        ? 'bg-[#d4a574] text-white'
+                        : 'text-white/80 hover:text-white'
+                    }`}
+                  >
+                    Timeline View
+                  </button>
+                  <button
+                    onClick={() => setViewMode('grid')}
+                    className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${
+                      viewMode === 'grid'
+                        ? 'bg-[#d4a574] text-white'
+                        : 'text-white/80 hover:text-white'
+                    }`}
+                  >
+                    Grid View
+                  </button>
+                </div>
+
+                {/* Full-Screen Toggle */}
                 <button
-                  onClick={() => setViewMode('timeline')}
-                  className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${
-                    viewMode === 'timeline'
-                      ? 'bg-[#d4a574] text-white'
-                      : 'text-white/80 hover:text-white'
-                  }`}
+                  onClick={toggleFullScreen}
+                  className="bg-white/10 backdrop-blur-sm rounded-full p-3 text-white/80 hover:text-white hover:bg-white/20 transition-all"
+                  title="Full Screen (F)"
                 >
-                  Timeline View
-                </button>
-                <button
-                  onClick={() => setViewMode('grid')}
-                  className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${
-                    viewMode === 'grid'
-                      ? 'bg-[#d4a574] text-white'
-                      : 'text-white/80 hover:text-white'
-                  }`}
-                >
-                  Grid View
+                  {isFullScreen ? (
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  ) : (
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
+                    </svg>
+                  )}
                 </button>
               </div>
             </div>
@@ -193,8 +246,75 @@ export default function TimelineDetail({ timeline, submissions }) {
       </section>
 
       {/* Timeline Content */}
-      <section className="py-12 px-4 bg-[#faf6f0] min-h-screen">
-        <div className="max-w-6xl mx-auto">
+      <section 
+        className={`py-12 px-4 bg-[#faf6f0] min-h-screen transition-all duration-300 ${
+          isFullScreen 
+            ? 'fixed inset-0 z-50 overflow-auto' 
+            : 'relative'
+        }`}
+      >
+        {/* Full-Screen Zoom Controls */}
+        {isFullScreen && (
+          <div className="fixed top-4 right-4 z-60 flex items-center space-x-2 timeline-controls rounded-full p-2">
+            <button
+              onClick={handleZoomOut}
+              className="p-2 rounded-full hover:bg-[#d4a574]/20 transition-colors"
+              title="Zoom Out (-)"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 12H4" />
+              </svg>
+            </button>
+            <span className="text-sm font-medium text-[#1e3a5f] min-w-[3rem] text-center">
+              {Math.round(zoomLevel * 100)}%
+            </span>
+            <button
+              onClick={handleZoomIn}
+              className="p-2 rounded-full hover:bg-[#d4a574]/20 transition-colors"
+              title="Zoom In (+)"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+              </svg>
+            </button>
+            <button
+              onClick={handleZoomReset}
+              className="p-2 rounded-full hover:bg-[#d4a574]/20 transition-colors text-xs font-medium"
+              title="Reset Zoom (0)"
+            >
+              100%
+            </button>
+            <div className="w-px h-6 bg-gray-300 mx-1"></div>
+            <button
+              onClick={toggleFullScreen}
+              className="p-2 rounded-full hover:bg-red-100 text-red-600 transition-colors"
+              title="Exit Full Screen (Esc)"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+        )}
+
+        {/* Keyboard Shortcuts Help */}
+        {isFullScreen && (
+          <div className="fixed bottom-4 left-4 z-60 timeline-help-panel rounded-lg p-3">
+            <div className="text-xs text-[#2c5f6f] space-y-1">
+              <div><kbd className="bg-gray-200 px-1 rounded">F</kbd> Full Screen</div>
+              <div><kbd className="bg-gray-200 px-1 rounded">+/-</kbd> Zoom</div>
+              <div><kbd className="bg-gray-200 px-1 rounded">0</kbd> Reset</div>
+              <div><kbd className="bg-gray-200 px-1 rounded">Esc</kbd> Exit</div>
+            </div>
+          </div>
+        )}
+
+        <div 
+          className={`timeline-zoom-transition ${
+            isFullScreen ? 'max-w-none mx-8' : 'max-w-6xl mx-auto'
+          }`}
+          style={{ transform: `scale(${zoomLevel})`, transformOrigin: 'top center' }}
+        >
           {!mounted ? (
             <div className="text-center py-12">
               <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#1e3a5f] mx-auto"></div>

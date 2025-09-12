@@ -18,6 +18,8 @@ export default function TimelineDetail({ timeline, submissions }) {
   const [mounted, setMounted] = useState(false);
   const [isFullScreen, setIsFullScreen] = useState(false);
   const [zoomLevel, setZoomLevel] = useState(1);
+  const [currentStyle, setCurrentStyle] = useState('list');
+  const [currentOrientation, setCurrentOrientation] = useState(timeline?.orientation || 'vertical');
 
   useEffect(() => {
     setMounted(true);
@@ -198,11 +200,16 @@ export default function TimelineDetail({ timeline, submissions }) {
               </div>
 
               {/* Controls Group */}
-              <div className="flex items-center space-x-4">
+              <div className="flex flex-wrap items-center gap-4">
                 {/* View Mode Toggle */}
                 <div className="flex items-center bg-white/10 backdrop-blur-sm rounded-full p-1">
                   <button
-                    onClick={() => setViewMode('timeline')}
+                    onClick={() => {
+                      setViewMode('timeline');
+                      if (!['list', 'compact', 'full'].includes(currentStyle)) {
+                        setCurrentStyle('list');
+                      }
+                    }}
                     className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${
                       viewMode === 'timeline'
                         ? 'bg-[#d4a574] text-white'
@@ -212,7 +219,12 @@ export default function TimelineDetail({ timeline, submissions }) {
                     Timeline View
                   </button>
                   <button
-                    onClick={() => setViewMode('grid')}
+                    onClick={() => {
+                      setViewMode('grid');
+                      if (currentStyle === 'list') {
+                        setCurrentStyle('full');
+                      }
+                    }}
                     className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${
                       viewMode === 'grid'
                         ? 'bg-[#d4a574] text-white'
@@ -222,6 +234,70 @@ export default function TimelineDetail({ timeline, submissions }) {
                     Grid View
                   </button>
                 </div>
+
+            {/* Timeline Style Selector */}
+            {viewMode === 'timeline' && (
+              <div className="flex items-center bg-white/10 backdrop-blur-sm rounded-full p-1">
+                {['list', 'compact', 'full'].map((style) => (
+                  <button
+                    key={style}
+                    onClick={() => setCurrentStyle(style)}
+                    className={`px-3 py-2 rounded-full text-xs font-medium transition-all capitalize ${
+                      currentStyle === style
+                        ? 'bg-[#e89547] text-white'
+                        : 'text-white/80 hover:text-white'
+                    }`}
+                  >
+                    {style}
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {/* Grid Style Selector */}
+            {viewMode === 'grid' && (
+              <div className="flex items-center bg-white/10 backdrop-blur-sm rounded-full p-1">
+                {['compact', 'full'].map((style) => (
+                  <button
+                    key={style}
+                    onClick={() => setCurrentStyle(style)}
+                    className={`px-3 py-2 rounded-full text-xs font-medium transition-all capitalize ${
+                      currentStyle === style
+                        ? 'bg-[#e89547] text-white'
+                        : 'text-white/80 hover:text-white'
+                    }`}
+                  >
+                    {style}
+                  </button>
+                ))}
+              </div>
+            )}
+
+                {/* Orientation Selector */}
+                {viewMode === 'timeline' && (
+                  <div className="flex items-center bg-white/10 backdrop-blur-sm rounded-full p-1">
+                    <button
+                      onClick={() => setCurrentOrientation('vertical')}
+                      className={`px-3 py-2 rounded-full text-xs font-medium transition-all ${
+                        currentOrientation === 'vertical'
+                          ? 'bg-[#2c5f6f] text-white'
+                          : 'text-white/80 hover:text-white'
+                      }`}
+                    >
+                      Vertical
+                    </button>
+                    <button
+                      onClick={() => setCurrentOrientation('horizontal')}
+                      className={`px-3 py-2 rounded-full text-xs font-medium transition-all ${
+                        currentOrientation === 'horizontal'
+                          ? 'bg-[#2c5f6f] text-white'
+                          : 'text-white/80 hover:text-white'
+                      }`}
+                    >
+                      Horizontal
+                    </button>
+                  </div>
+                )}
 
                 {/* Full-Screen Toggle */}
                 <button
@@ -339,9 +415,16 @@ export default function TimelineDetail({ timeline, submissions }) {
               )}
             </div>
           ) : viewMode === 'timeline' ? (
-            <TimelineView submissions={filteredSubmissions} />
+            <TimelineView 
+              submissions={filteredSubmissions} 
+              style={currentStyle}
+              orientation={currentOrientation}
+            />
           ) : (
-            <GridView submissions={filteredSubmissions} />
+            <GridView 
+              submissions={filteredSubmissions} 
+              style={currentStyle}
+            />
           )}
         </div>
       </section>
@@ -349,33 +432,105 @@ export default function TimelineDetail({ timeline, submissions }) {
   );
 }
 
-function TimelineView({ submissions }) {
+function TimelineView({ submissions, style = 'list', orientation = 'vertical' }) {
+  if (orientation === 'horizontal') {
+    return <HorizontalTimelineView submissions={submissions} style={style} />;
+  }
+
+  const getTimelineClass = () => {
+    switch (style) {
+      case 'compact':
+        return 'space-y-6';
+      case 'full':
+        return 'space-y-16';
+      case 'list':
+      default:
+        return 'space-y-12';
+    }
+  };
+
+  const showTimelineLine = style !== 'compact';
+
   return (
     <div className="relative">
       {/* Timeline Line */}
-      <div className="absolute left-8 top-0 bottom-0 w-0.5 bg-gradient-to-b from-[#d4a574] to-[#f4d03f]"></div>
+      {showTimelineLine && (
+        <div className={`absolute top-0 bottom-0 w-0.5 bg-gradient-to-b from-[#d4a574] to-[#f4d03f] ${
+          style === 'full' ? 'left-1/2 transform -translate-x-1/2' : 'left-8'
+        }`}></div>
+      )}
       
       {/* Timeline Items */}
-      <div className="space-y-12">
+      <div className={getTimelineClass()}>
         {submissions.map((submission, index) => (
-          <TimelineItem key={submission.id} submission={submission} index={index} />
+          <TimelineItem 
+            key={submission.id} 
+            submission={submission} 
+            index={index} 
+            style={style}
+            showNode={showTimelineLine}
+          />
         ))}
       </div>
     </div>
   );
 }
 
-function GridView({ submissions }) {
+function GridView({ submissions, style = 'full' }) {
   return (
     <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
       {submissions.map((submission, index) => (
-        <GridItem key={submission.id} submission={submission} index={index} />
+        <GridItem key={submission.id} submission={submission} index={index} style={style} />
       ))}
     </div>
   );
 }
 
-function TimelineItem({ submission, index }) {
+function HorizontalTimelineView({ submissions, style }) {
+  const getContainerHeight = () => {
+    switch (style) {
+      case 'compact':
+        return 'h-[400px]'; // Fixed height for compact cards above and below
+      case 'full':
+        return 'h-[600px]'; // Fixed height for full cards above and below
+      case 'list':
+      default:
+        return 'h-[400px]'; // Increased height so cards aren't cut off
+    }
+  };
+
+  const getTimelinePosition = () => {
+    switch (style) {
+      case 'compact':
+      case 'full':
+        return 'top-1/2'; // Center for alternating
+      case 'list':
+      default:
+        return 'top-12'; // Higher up for list so cards are below
+    }
+  };
+
+  return (
+    <div className={`relative overflow-x-auto pb-8 horizontal-timeline ${getContainerHeight()}`}>
+      {/* Horizontal Timeline Line */}
+      <div className={`absolute ${getTimelinePosition()} left-0 right-0 h-0.5 bg-gradient-to-r from-[#d4a574] to-[#f4d03f] transform -translate-y-1/2 z-10`}></div>
+      
+      {/* Timeline Items Container */}
+      <div className="flex space-x-8 min-w-max px-4 h-full items-center">
+        {submissions.map((submission, index) => (
+          <HorizontalTimelineItem 
+            key={submission.id} 
+            submission={submission} 
+            index={index} 
+            style={style}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function HorizontalTimelineItem({ submission, index, style }) {
   const getTimeframeContent = () => {
     const timeframeContent = submission.submission_content?.find(c => c.type === 'timeframe');
     return timeframeContent?.content || 'Date not specified';
@@ -391,16 +546,269 @@ function TimelineItem({ submission, index }) {
     return textContent?.content || null;
   };
 
+  // For full and compact styles, alternate above and below
+  const isAbove = (style === 'full' || style === 'compact') && index % 2 === 0;
+
+  const getLayoutClasses = () => {
+    switch (style) {
+      case 'compact':
+        return {
+          container: `relative min-w-[200px] h-full flex items-center justify-center`,
+          cardPosition: isAbove 
+            ? 'absolute top-4 left-1/2 transform -translate-x-1/2' 
+            : 'absolute bottom-4 left-1/2 transform -translate-x-1/2',
+          nodePosition: 'absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-20',
+          card: 'bg-white/80 rounded-lg p-3 shadow-sm w-full max-w-xs',
+          title: 'font-display text-sm font-semibold text-[#1e3a5f] mb-1'
+        };
+      case 'full':
+        return {
+          container: `relative min-w-[320px] h-full flex items-center justify-center`,
+          cardPosition: isAbove 
+            ? 'absolute top-4 left-1/2 transform -translate-x-1/2' 
+            : 'absolute bottom-4 left-1/2 transform -translate-x-1/2',
+          nodePosition: 'absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-20',
+          card: 'prophecy-card w-full max-w-md',
+          title: 'font-display text-lg font-bold text-[#1e3a5f] mb-3'
+        };
+      case 'list':
+      default:
+        return {
+          container: 'relative min-w-[300px] h-full flex items-center justify-center',
+          cardPosition: 'absolute top-16 left-1/2 transform -translate-x-1/2',
+          nodePosition: 'absolute top-12 left-1/2 transform -translate-x-1/2 z-20',
+          card: 'prophecy-card w-full max-w-sm',
+          title: 'font-display text-lg font-bold text-[#1e3a5f] mb-3'
+        };
+    }
+  };
+
+  const layoutClasses = getLayoutClasses();
+
   return (
-    <div className="relative flex items-start space-x-8 animate-fade-in-up" style={{ animationDelay: `${index * 0.1}s` }}>
-      {/* Timeline Node */}
-      <div className="relative z-10 flex-shrink-0 mt-6">
-        <div className="w-4 h-4 bg-gradient-to-r from-[#d4a574] to-[#f4d03f] rounded-full border-4 border-[#faf6f0] shadow-lg"></div>
-        <div className="absolute -top-1 -left-1 w-6 h-6 bg-gradient-to-r from-[#d4a574] to-[#f4d03f] rounded-full opacity-20 animate-ping"></div>
+    <div className={`${layoutClasses.container} animate-fade-in-up`} style={{ animationDelay: `${index * 0.1}s` }}>
+      {/* Content Card */}
+      <div className={`${layoutClasses.card} ${layoutClasses.cardPosition}`}>
+        <div className="flex items-center justify-between mb-2">
+          <span className={`text-xs font-medium text-[#d4a574] ${style !== 'compact' ? 'bg-gradient-to-r from-[#d4a574]/10 to-[#f4d03f]/10 px-3 py-1 rounded-full text-sm font-bold' : ''}`}>
+            {getTimeframeContent()}
+          </span>
+          <span className="text-xs text-[#2c5f6f] font-medium">
+            #{index + 1}
+          </span>
+        </div>
+        
+        <h4 className={layoutClasses.title}>
+          {submission.title}
+        </h4>
+        
+        {submission.description && (
+          <p className={`text-[#2c5f6f] leading-relaxed ${style === 'compact' ? 'text-sm mb-2 line-clamp-2' : 'mb-4'}`}>{submission.description}</p>
+        )}
+
+        {style !== 'compact' && getTextContent() && (
+          <div className="bg-gradient-to-r from-[#1e3a5f]/5 to-[#2c5f6f]/5 p-4 rounded-lg mb-4 border-l-4 border-[#d4a574]">
+            <p className="text-[#1e3a5f] italic">{getTextContent()}</p>
+          </div>
+        )}
+        
+        {style !== 'compact' && getScriptureContent() && (
+          <div className="bg-gradient-to-r from-[#87ceeb]/10 to-[#d4a574]/10 p-4 rounded-lg mb-4 border border-[#d4a574]/20">
+            <div className="flex items-center mb-2">
+              <span className="text-xs font-bold text-[#2c5f6f] uppercase tracking-wide">📖 Scripture Reference</span>
+            </div>
+            <p className="text-[#1e3a5f] font-semibold text-lg">{getScriptureContent()}</p>
+          </div>
+        )}
+        
+        <div className={`text-xs text-[#2c5f6f] ${style !== 'compact' ? 'flex items-center justify-between pt-4 border-t border-[#87ceeb]/20' : ''}`}>
+          {style === 'compact' ? (
+            <span>📅 {new Date(submission.created_at).toLocaleDateString('en-US', {
+              year: 'numeric',
+              month: 'short',
+              day: 'numeric'
+            })}</span>
+          ) : (
+            <div className="flex items-center space-x-4">
+              <span>📅 {new Date(submission.created_at).toLocaleDateString('en-US', {
+                year: 'numeric',
+                month: 'short',
+                day: 'numeric'
+              })}</span>
+              <span>•</span>
+              <span>📝 {submission.submission_content?.length || 0} items</span>
+            </div>
+          )}
+        </div>
       </div>
       
+      {/* Timeline Node */}
+      <div className={layoutClasses.nodePosition}>
+        <div className={`${style === 'compact' ? 'w-3 h-3' : 'w-4 h-4'} bg-gradient-to-r from-[#d4a574] to-[#f4d03f] rounded-full ${style === 'compact' ? 'border-2' : 'border-4'} border-white shadow-lg`}></div>
+        {style !== 'compact' && (
+          <div className="absolute -top-1 -left-1 w-6 h-6 bg-gradient-to-r from-[#d4a574] to-[#f4d03f] rounded-full opacity-20 animate-ping"></div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function TimelineItem({ submission, index, style = 'list', showNode = true }) {
+  const getTimeframeContent = () => {
+    const timeframeContent = submission.submission_content?.find(c => c.type === 'timeframe');
+    return timeframeContent?.content || 'Date not specified';
+  };
+
+  const getScriptureContent = () => {
+    const scriptureContent = submission.submission_content?.find(c => c.type === 'scriptures');
+    return scriptureContent?.content || null;
+  };
+
+  const getTextContent = () => {
+    const textContent = submission.submission_content?.find(c => c.type === 'text');
+    return textContent?.content || null;
+  };
+
+  // For full style, alternate sides
+  const isLeftSide = style === 'full' && index % 2 === 0;
+
+  const getStyleClasses = () => {
+    switch (style) {
+      case 'compact':
+        return {
+          container: 'flex items-start space-x-4',
+          card: 'flex-1 bg-white/80 rounded-lg p-3 shadow-sm hover:shadow-md transition-all duration-300',
+          title: 'font-display text-base font-semibold text-[#1e3a5f] mb-1',
+          node: 'w-2 h-2 bg-[#d4a574] rounded-full mt-2 flex-shrink-0'
+        };
+      case 'full':
+        return {
+          container: `relative flex ${isLeftSide ? 'justify-start' : 'justify-end'} w-full`,
+          card: `w-full max-w-2xl prophecy-card hover:shadow-xl transition-all duration-300 ${isLeftSide ? 'mr-6' : 'ml-6'}`,
+          title: 'font-display text-lg font-bold text-[#1e3a5f] mb-3',
+          node: 'w-4 h-4 bg-gradient-to-r from-[#d4a574] to-[#f4d03f] rounded-full border-4 border-white shadow-lg'
+        };
+      case 'list':
+      default:
+        return {
+          container: 'relative flex items-start space-x-8',
+          card: 'flex-1 prophecy-card hover:shadow-xl transition-all duration-300',
+          title: 'font-display text-xl font-bold text-[#1e3a5f] mb-3',
+          node: showNode ? 'w-4 h-4 bg-gradient-to-r from-[#d4a574] to-[#f4d03f] rounded-full border-4 border-[#faf6f0] shadow-lg mt-6' : null
+        };
+    }
+  };
+
+  const styleClasses = getStyleClasses();
+
+  if (style === 'compact') {
+    return (
+      <div className={`animate-fade-in-up ${styleClasses.container}`} style={{ animationDelay: `${index * 0.1}s` }}>
+        <div className={styleClasses.node}></div>
+        <div className={styleClasses.card}>
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-xs font-medium text-[#d4a574]">
+              {getTimeframeContent()}
+            </span>
+            <span className="text-xs text-[#2c5f6f]">
+              #{index + 1}
+            </span>
+          </div>
+          
+          <h4 className={styleClasses.title}>
+            {submission.title}
+          </h4>
+          
+          {submission.description && (
+            <p className="text-[#2c5f6f] text-sm leading-relaxed mb-2">{submission.description}</p>
+          )}
+          
+          <div className="text-xs text-[#2c5f6f]">
+            📅 {new Date(submission.created_at).toLocaleDateString('en-US', {
+              year: 'numeric',
+              month: 'short',
+              day: 'numeric'
+            })}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (style === 'full') {
+    return (
+      <div className={`animate-fade-in-up ${styleClasses.container}`} style={{ animationDelay: `${index * 0.1}s` }}>
+        {/* Timeline Node - positioned in center */}
+        <div className="absolute left-1/2 transform -translate-x-1/2 z-10">
+          <div className={styleClasses.node}></div>
+          <div className="absolute -top-1 -left-1 w-6 h-6 bg-gradient-to-r from-[#d4a574] to-[#f4d03f] rounded-full opacity-20 animate-ping"></div>
+        </div>
+        
+        {/* Content Card */}
+        <div className={styleClasses.card}>
+          <div className="flex items-center justify-between mb-4">
+            <span className="text-sm font-bold text-[#d4a574] bg-gradient-to-r from-[#d4a574]/10 to-[#f4d03f]/10 px-3 py-1 rounded-full">
+              {getTimeframeContent()}
+            </span>
+            <span className="text-xs text-[#2c5f6f] font-medium">
+              Entry #{index + 1}
+            </span>
+          </div>
+          
+          <h4 className={styleClasses.title}>
+            {submission.title}
+          </h4>
+          
+          {submission.description && (
+            <p className="text-[#2c5f6f] mb-4 leading-relaxed">{submission.description}</p>
+          )}
+
+          {getTextContent() && (
+            <div className="bg-gradient-to-r from-[#1e3a5f]/5 to-[#2c5f6f]/5 p-4 rounded-lg mb-4 border-l-4 border-[#d4a574]">
+              <p className="text-[#1e3a5f] italic">{getTextContent()}</p>
+            </div>
+          )}
+          
+          {getScriptureContent() && (
+            <div className="bg-gradient-to-r from-[#87ceeb]/10 to-[#d4a574]/10 p-4 rounded-lg mb-4 border border-[#d4a574]/20">
+              <div className="flex items-center mb-2">
+                <span className="text-xs font-bold text-[#2c5f6f] uppercase tracking-wide">📖 Scripture Reference</span>
+              </div>
+              <p className="text-[#1e3a5f] font-semibold text-lg">{getScriptureContent()}</p>
+            </div>
+          )}
+          
+          <div className="flex items-center justify-between pt-4 border-t border-[#87ceeb]/20">
+            <div className="flex items-center space-x-4 text-xs text-[#2c5f6f]">
+              <span>📅 {new Date(submission.created_at).toLocaleDateString('en-US', {
+                year: 'numeric',
+                month: 'short',
+                day: 'numeric'
+              })}</span>
+              <span>•</span>
+              <span>📝 {submission.submission_content?.length || 0} items</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Default and Card styles (both use same layout)
+  return (
+    <div className={`animate-fade-in-up ${styleClasses.container}`} style={{ animationDelay: `${index * 0.1}s` }}>
+      {/* Timeline Node */}
+      {styleClasses.node && (
+        <div className="relative z-10 flex-shrink-0">
+          <div className={styleClasses.node}></div>
+          {style === 'default' && (
+            <div className="absolute -top-1 -left-1 w-6 h-6 bg-gradient-to-r from-[#d4a574] to-[#f4d03f] rounded-full opacity-20 animate-ping"></div>
+          )}
+        </div>
+      )}
+      
       {/* Content */}
-      <div className="flex-1 prophecy-card hover:shadow-xl transition-all duration-300">
+      <div className={styleClasses.card}>
         <div className="flex items-center justify-between mb-4">
           <span className="text-sm font-bold text-[#d4a574] bg-gradient-to-r from-[#d4a574]/10 to-[#f4d03f]/10 px-3 py-1 rounded-full">
             {getTimeframeContent()}
@@ -410,7 +818,7 @@ function TimelineItem({ submission, index }) {
           </span>
         </div>
         
-        <h4 className="font-display text-xl font-bold text-[#1e3a5f] mb-3">
+        <h4 className={styleClasses.title}>
           {submission.title}
         </h4>
         
@@ -454,7 +862,7 @@ function TimelineItem({ submission, index }) {
   );
 }
 
-function GridItem({ submission, index }) {
+function GridItem({ submission, index, style = 'full' }) {
   const getTimeframeContent = () => {
     const timeframeContent = submission.submission_content?.find(c => c.type === 'timeframe');
     return timeframeContent?.content || 'Date not specified';
@@ -465,14 +873,51 @@ function GridItem({ submission, index }) {
     return scriptureContent?.content || null;
   };
 
+  const getTextContent = () => {
+    const textContent = submission.submission_content?.find(c => c.type === 'text');
+    return textContent?.content || null;
+  };
+
+  if (style === 'compact') {
+    return (
+      <div className="bg-white/80 rounded-lg p-4 shadow-sm hover:shadow-md transition-all duration-300 animate-fade-in-up" style={{ animationDelay: `${index * 0.1}s` }}>
+        <div className="flex items-center justify-between mb-2">
+          <span className="text-xs font-medium text-[#d4a574]">
+            {getTimeframeContent()}
+          </span>
+          <span className="text-xs text-[#2c5f6f]">
+            #{index + 1}
+          </span>
+        </div>
+        
+        <h4 className="font-display text-base font-semibold text-[#1e3a5f] mb-1">
+          {submission.title}
+        </h4>
+        
+        {submission.description && (
+          <p className="text-[#2c5f6f] text-sm leading-relaxed mb-2 line-clamp-2">{submission.description}</p>
+        )}
+        
+        <div className="text-xs text-[#2c5f6f]">
+          📅 {new Date(submission.created_at).toLocaleDateString('en-US', {
+            year: 'numeric',
+            month: 'short',
+            day: 'numeric'
+          })}
+        </div>
+      </div>
+    );
+  }
+
+  // Full style - show all content
   return (
     <div className="prophecy-card hover:shadow-xl transition-all duration-300 animate-fade-in-up" style={{ animationDelay: `${index * 0.1}s` }}>
       <div className="flex items-center justify-between mb-3">
-        <span className="text-sm font-bold text-[#d4a574]">
+        <span className="text-sm font-bold text-[#d4a574] bg-gradient-to-r from-[#d4a574]/10 to-[#f4d03f]/10 px-3 py-1 rounded-full">
           {getTimeframeContent()}
         </span>
-        <span className="text-xs text-[#2c5f6f]">
-          #{index + 1}
+        <span className="text-xs text-[#2c5f6f] font-medium">
+          Entry #{index + 1}
         </span>
       </div>
       
@@ -481,23 +926,37 @@ function GridItem({ submission, index }) {
       </h4>
       
       {submission.description && (
-        <p className="text-[#2c5f6f] text-sm mb-3 line-clamp-3">{submission.description}</p>
+        <p className="text-[#2c5f6f] text-sm mb-3 leading-relaxed">{submission.description}</p>
+      )}
+
+      {getTextContent() && (
+        <div className="bg-gradient-to-r from-[#1e3a5f]/5 to-[#2c5f6f]/5 p-3 rounded-lg mb-3 border-l-4 border-[#d4a574]">
+          <p className="text-[#1e3a5f] italic text-sm">{getTextContent()}</p>
+        </div>
       )}
       
       {getScriptureContent() && (
-        <div className="bg-gradient-to-r from-[#87ceeb]/10 to-[#d4a574]/10 p-3 rounded-lg mb-3">
-          <span className="text-xs font-medium text-[#2c5f6f] uppercase tracking-wide block mb-1">📖 Scripture</span>
+        <div className="bg-gradient-to-r from-[#87ceeb]/10 to-[#d4a574]/10 p-3 rounded-lg mb-3 border border-[#d4a574]/20">
+          <span className="text-xs font-bold text-[#2c5f6f] uppercase tracking-wide block mb-1">📖 Scripture Reference</span>
           <p className="text-[#1e3a5f] font-semibold text-sm">{getScriptureContent()}</p>
         </div>
       )}
       
       <div className="flex items-center justify-between text-xs text-[#2c5f6f] pt-3 border-t border-[#87ceeb]/20">
-        <span>{new Date(submission.created_at).toLocaleDateString('en-US', {
-          year: 'numeric',
-          month: 'short',
-          day: 'numeric'
-        })}</span>
-        <span>{submission.submission_content?.length || 0} items</span>
+        <div className="flex items-center space-x-2">
+          <span>📅 {new Date(submission.created_at).toLocaleDateString('en-US', {
+            year: 'numeric',
+            month: 'short',
+            day: 'numeric'
+          })}</span>
+          <span>•</span>
+          <span>📝 {submission.submission_content?.length || 0} items</span>
+        </div>
+        <div className="flex items-center space-x-1">
+          {submission.submission_content?.slice(0, 3).map((content, idx) => (
+            <span key={idx} className="w-1.5 h-1.5 bg-[#d4a574] rounded-full opacity-60"></span>
+          ))}
+        </div>
       </div>
     </div>
   );

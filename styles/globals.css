@@ -119,6 +119,12 @@ body {
   box-shadow: 0 12px 40px rgba(30, 58, 95, 0.15);
 }
 
+/* Disable hover effects for horizontal timeline cards */
+.horizontal-timeline .prophecy-card:hover {
+  transform: none;
+  box-shadow: 0 8px 32px rgba(30, 58, 95, 0.1);
+}
+
 /* Additional button styles */
 .prophecy-button-sm {
   background: var(--prophecy-sunset-gradient);
@@ -239,6 +245,49 @@ input[type="text"]:focus {
 .timeline-fullscreen .prophecy-card {
   box-shadow: 0 12px 48px rgba(30, 58, 95, 0.15);
   border: 1px solid rgba(212, 165, 116, 0.2);
+}
+
+/* Timeline Style Variations */
+.timeline-minimal {
+  background: rgba(255, 255, 255, 0.8);
+  backdrop-filter: blur(5px);
+  border-left: 3px solid var(--prophecy-golden);
+}
+
+.timeline-card {
+  background: linear-gradient(135deg, white 0%, #faf6f0 100%);
+  border: 2px solid rgba(212, 165, 116, 0.2);
+  border-radius: 16px;
+  box-shadow: 0 8px 32px rgba(30, 58, 95, 0.1);
+}
+
+.timeline-enhanced {
+  background: linear-gradient(135deg, white 0%, #faf6f0 100%);
+  border-left: 4px solid var(--prophecy-golden);
+  box-shadow: 0 12px 48px rgba(30, 58, 95, 0.12);
+}
+
+/* Horizontal Timeline Styles */
+.horizontal-timeline {
+  scroll-behavior: smooth;
+}
+
+.horizontal-timeline::-webkit-scrollbar {
+  height: 8px;
+}
+
+.horizontal-timeline::-webkit-scrollbar-track {
+  background: rgba(212, 165, 116, 0.1);
+  border-radius: 4px;
+}
+
+.horizontal-timeline::-webkit-scrollbar-thumb {
+  background: var(--prophecy-golden);
+  border-radius: 4px;
+}
+
+.horizontal-timeline::-webkit-scrollbar-thumb:hover {
+  background: var(--prophecy-orange);
 }
 
 /* Smooth zoom transitions */

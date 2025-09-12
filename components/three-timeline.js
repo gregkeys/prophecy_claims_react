@@ -287,6 +287,7 @@ export default function ThreeTimeline({
       controls.enableDamping = true;
       controls.dampingFactor = 0.05;
       controls.enablePan = true;
+      controls.zoomSpeed = 2.0; // faster wheel zoom
       controls.minDistance = 10;
       controls.maxDistance = 200;
       controlsRef.current = controls;

@@ -158,37 +158,73 @@ export default function ThreeTimeline({
       scene.add(pathMesh);
     }
 
-    // Nodes
+    // Nodes or cards depending on axisType
     const nodeGroup = new THREE.Group();
+    nodeGroup.name = 'timeline_nodes';
+    const cardsGroup = new THREE.Group();
+    cardsGroup.name = 'cards_group';
+    const stemsGroup = new THREE.Group();
+    stemsGroup.name = 'stems_group';
+
     const sphereGeometry = new THREE.SphereGeometry(1.1, 24, 24);
     const boxGeometry = new THREE.BoxGeometry(2, 2, 2);
     const tetraGeometry = new THREE.TetrahedronGeometry(1.4);
+
+    const cardPosById = {};
+
     nodes.forEach((n, index) => {
       const category = getCategory ? getCategory(n) : (n.status || 'default');
       const color = getCategoryColor(category);
       const emissive = color;
       const shape = getCategoryShape(category);
       const geometry = shape === 'box' ? boxGeometry : shape === 'tetra' ? tetraGeometry : sphereGeometry;
-      const material = new THREE.MeshStandardMaterial({ color, emissive, emissiveIntensity: 0.2, metalness: 0.2, roughness: 0.5 });
-      const mesh = new THREE.Mesh(geometry, material);
-      const pos = positionForNode(n, timeSpanRef.current, axisType);
-      mesh.position.copy(pos);
-      mesh.userData = { item: n, index, baseScale: 1 };
-      mesh.castShadow = false;
-      mesh.receiveShadow = false;
-      if (showMiniCards) {
-        const label = createLabelSprite(n.title || 'Untitled', {
-          bgColor: 'rgba(255,255,255,0.95)',
-          textColor: '#1e3a5f'
-        });
-        label.position.set(0, 3, 0);
-        label.userData = { isLabel: true };
-        mesh.add(label);
+      const basePos = positionForNode(n, timeSpanRef.current, axisType);
+
+      if (axisType === 'line') {
+        const side = index % 2 === 0 ? -1 : 1; // left/right
+        const cardPos = new THREE.Vector3(14 * side, 0, basePos.z);
+        cardPosById[n.id ?? n.submission_id ?? index] = cardPos.clone();
+
+        // stem line from axis to card
+        const stemGeo = new THREE.BufferGeometry().setFromPoints([
+          new THREE.Vector3(0, 0, basePos.z),
+          cardPos
+        ]);
+        const stemMat = new THREE.LineBasicMaterial({ color: 0x1e3a5f, transparent: true, opacity: 0.6 });
+        const stem = new THREE.Line(stemGeo, stemMat);
+        stemsGroup.add(stem);
+
+        // card sprite with title and timeframe
+        const subtitle = n.timeframe || n.date || new Date(n.created_at || Date.now()).toLocaleDateString('en-US');
+        const desc = n.description || '';
+        const card = createCardSprite(n.title || 'Untitled', subtitle, desc);
+        card.position.copy(cardPos);
+        card.userData = { item: n, isCard: true };
+        cardsGroup.add(card);
+      } else {
+        // Helix mode: meshes + optional labels
+        const material = new THREE.MeshStandardMaterial({ color, emissive, emissiveIntensity: 0.2, metalness: 0.2, roughness: 0.5 });
+        const mesh = new THREE.Mesh(geometry, material);
+        mesh.position.copy(basePos);
+        mesh.userData = { item: n, index, baseScale: 1 };
+        mesh.castShadow = false;
+        mesh.receiveShadow = false;
+        if (showMiniCards) {
+          const label = createLabelSprite(n.title || 'Untitled', {
+            bgColor: 'rgba(255,255,255,0.95)',
+            textColor: '#1e3a5f'
+          });
+          label.position.set(0, 3, 0);
+          label.userData = { isLabel: true };
+          mesh.add(label);
+        }
+        nodeGroup.add(mesh);
       }
-      nodeGroup.add(mesh);
     });
-    nodeGroup.name = 'timeline_nodes';
-    scene.add(nodeGroup);
+
+    if (nodeGroup.children.length > 0) scene.add(nodeGroup);
+    if (cardsGroup.children.length > 0) scene.add(cardsGroup);
+    if (stemsGroup.children.length > 0) scene.add(stemsGroup);
 
     // Year tick marks
     if (nodes.length > 0) {
@@ -224,8 +260,14 @@ export default function ThreeTimeline({
         const a = nodes.find(n => (n.id ?? n.submission_id) === rel.sourceId);
         const b = nodes.find(n => (n.id ?? n.submission_id) === rel.targetId);
         if (!a || !b) return;
-        const p0 = positionForNode(a, timeSpanRef.current, axisType);
-        const p2 = positionForNode(b, timeSpanRef.current, axisType);
+        let p0 = positionForNode(a, timeSpanRef.current, axisType);
+        let p2 = positionForNode(b, timeSpanRef.current, axisType);
+        if (axisType === 'line') {
+          const aid = a.id ?? a.submission_id;
+          const bid = b.id ?? b.submission_id;
+          if (cardPosById[aid]) p0 = cardPosById[aid].clone();
+          if (cardPosById[bid]) p2 = cardPosById[bid].clone();
+        }
         const mid = p0.clone().add(p2).multiplyScalar(0.5);
         mid.y += 8;
         const curve = new THREE.QuadraticBezierCurve3(p0, mid, p2);
@@ -291,8 +333,12 @@ export default function ThreeTimeline({
       const raycaster = raycasterRef.current;
       raycaster.setFromCamera(mouseRef.current, cameraRef.current);
       const nodesGroup = sceneRef.current.getObjectByName('timeline_nodes');
-      if (!nodesGroup) return;
-      const intersects = raycaster.intersectObjects(nodesGroup.children, false);
+      const cardsGroupRef = sceneRef.current.getObjectByName('cards_group');
+      const intersectTargets = [];
+      if (nodesGroup) intersectTargets.push(...nodesGroup.children);
+      if (cardsGroupRef) intersectTargets.push(...cardsGroupRef.children);
+      if (intersectTargets.length === 0) return;
+      const intersects = raycaster.intersectObjects(intersectTargets, false);
       if (intersects.length > 0) {
         const first = intersects[0].object.userData.item;
         if (onSelect) onSelect(first);
@@ -304,18 +350,30 @@ export default function ThreeTimeline({
       const raycaster = raycasterRef.current;
       raycaster.setFromCamera(mouseRef.current, cameraRef.current);
       const nodesGroup = sceneRef.current.getObjectByName('timeline_nodes');
-      if (!nodesGroup) return;
-      const intersects = raycaster.intersectObjects(nodesGroup.children, false);
+      const cardsGroupRef = sceneRef.current.getObjectByName('cards_group');
+      const intersectTargets = [];
+      if (nodesGroup) intersectTargets.push(...nodesGroup.children);
+      if (cardsGroupRef) intersectTargets.push(...cardsGroupRef.children);
+      if (intersectTargets.length === 0) return;
+      const intersects = raycaster.intersectObjects(intersectTargets, false);
       let top = null;
       if (intersects.length > 0) top = intersects[0].object;
 
       if (hovered && hovered !== top) {
-        hovered.scale.setScalar(hovered.userData.baseScale || 1);
-        if (hovered.material) hovered.material.emissiveIntensity = 0.2;
+        if (hovered.isSprite) {
+          hovered.scale.set(12, 6, 1);
+        } else {
+          hovered.scale.setScalar(hovered.userData.baseScale || 1);
+          if (hovered.material) hovered.material.emissiveIntensity = 0.2;
+        }
       }
       if (top) {
-        top.scale.setScalar(1.5);
-        if (top.material) top.material.emissiveIntensity = 0.8;
+        if (top.isSprite) {
+          top.scale.set(13.2, 6.6, 1);
+        } else {
+          top.scale.setScalar(1.5);
+          if (top.material) top.material.emissiveIntensity = 0.8;
+        }
         setHovered(top);
         const vector = top.position.clone();
         vector.project(cameraRef.current);
@@ -527,6 +585,70 @@ function wrapText(ctx, text, x, y, maxWidth, lineHeight) {
   for (let i = 0; i < lines.length; i++) {
     ctx.fillText(lines[i], x, startY + i * lineHeight);
   }
+}
+
+function createCardSprite(title, subtitle, description) {
+  const canvas = document.createElement('canvas');
+  const scale = 2;
+  canvas.width = 480 * scale;
+  canvas.height = 320 * scale;
+  const ctx = canvas.getContext('2d');
+
+  // Background panel with subtle gradient
+  const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
+  gradient.addColorStop(0, 'rgba(250, 246, 240, 0.98)');
+  gradient.addColorStop(1, 'rgba(255, 255, 255, 0.98)');
+  ctx.fillStyle = gradient;
+  roundRect(ctx, 14 * scale, 14 * scale, canvas.width - 28 * scale, canvas.height - 28 * scale, 18 * scale);
+  ctx.fill();
+
+  // Accent top border
+  ctx.fillStyle = '#d4a574';
+  roundRect(ctx, 14 * scale, 14 * scale, canvas.width - 28 * scale, 10 * scale, 8 * scale);
+  ctx.fill();
+
+  // Title
+  ctx.fillStyle = '#1e3a5f';
+  ctx.font = `${28 * scale}px sans-serif`;
+  ctx.textAlign = 'left';
+  ctx.textBaseline = 'top';
+  const paddingX = 28 * scale;
+  let cursorY = 40 * scale;
+  wrapText(ctx, String(title || 'Untitled'), paddingX + 4 * scale, cursorY, canvas.width - paddingX * 2, 34 * scale);
+
+  // Subtitle/timeframe
+  ctx.fillStyle = '#8b6f47';
+  ctx.font = `${20 * scale}px sans-serif`;
+  cursorY += 60 * scale;
+  const subtitleText = String(subtitle || 'Date not specified');
+  wrapText(ctx, subtitleText, paddingX + 4 * scale, cursorY, canvas.width - paddingX * 2, 26 * scale);
+
+  // Divider
+  cursorY += 36 * scale;
+  ctx.fillStyle = 'rgba(212,165,116,0.25)';
+  ctx.fillRect(paddingX, cursorY, canvas.width - paddingX * 2, 2 * scale);
+
+  // Description
+  ctx.fillStyle = '#2c5f6f';
+  ctx.font = `${20 * scale}px sans-serif`;
+  cursorY += 16 * scale;
+  wrapText(
+    ctx,
+    String(description || ''),
+    paddingX + 4 * scale,
+    cursorY,
+    canvas.width - paddingX * 2,
+    28 * scale
+  );
+
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.needsUpdate = true;
+  texture.minFilter = THREE.LinearFilter;
+  const material = new THREE.SpriteMaterial({ map: texture, transparent: true, depthWrite: false });
+  const sprite = new THREE.Sprite(material);
+  // Scale roughly matching readable size in scene
+  sprite.scale.set(22, 14, 1);
+  return sprite;
 }
 
 

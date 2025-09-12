@@ -13,6 +13,7 @@ export default function Timeline3D({ timeline, submissions }) {
   const [selected, setSelected] = useState(null);
   const [showData, setShowData] = useState(false);
   const [showMini, setShowMini] = useState(false);
+  const [axisType, setAxisType] = useState('helix');
 
   const items = useMemo(() => {
     return (submissions || []).map(s => ({
@@ -71,7 +72,7 @@ export default function Timeline3D({ timeline, submissions }) {
             <ThreeTimeline
               items={items}
               onSelect={setSelected}
-              axisType="helix"
+              axisType={axisType}
               background="stars"
               getCategory={(n) => n.category || n.status}
               relations={[]}
@@ -79,6 +80,22 @@ export default function Timeline3D({ timeline, submissions }) {
               showMiniCards={showMini}
             />
             <div className="absolute bottom-4 left-4 z-30 flex items-center gap-2">
+              <div className="bg-white/80 rounded shadow p-1 flex items-center text-xs">
+                <button
+                  onClick={() => setAxisType('helix')}
+                  className={`px-3 py-2 rounded ${axisType === 'helix' ? 'bg-[#d4a574] text-white' : 'text-[#1e3a5f]'}`}
+                  title="Helical timeline"
+                >
+                  Helix
+                </button>
+                <button
+                  onClick={() => setAxisType('line')}
+                  className={`px-3 py-2 rounded ${axisType === 'line' ? 'bg-[#d4a574] text-white' : 'text-[#1e3a5f]'}`}
+                  title="Straight timeline"
+                >
+                  Straight
+                </button>
+              </div>
               <button
                 onClick={() => setShowData(!showData)}
                 className="bg-white/80 hover:bg-white text-[#1e3a5f] text-xs font-medium px-3 py-2 rounded shadow"

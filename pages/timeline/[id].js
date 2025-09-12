@@ -315,6 +315,15 @@ export default function TimelineDetail({ timeline, submissions }) {
                     </svg>
                   )}
                 </button>
+
+                {/* 3D View Link */}
+                <Link
+                  href={`/timeline/3d/${timeline.id}`}
+                  className="prophecy-button-sm px-4 py-2 text-sm"
+                  title="Open 3D Timeline View"
+                >
+                  3D View
+                </Link>
               </div>
             </div>
           </div>

@@ -25,22 +25,22 @@ export default function DetailedTimeline({ timeline, submissions }) {
         <div className="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
           <Link href="/" className="font-display text-2xl font-bold prophecy-gradient-text">Prophecy.Claims</Link>
           <div className="flex items-center gap-3">
-            <Link href={`/timeline/${timeline.id}`} className="prophecy-button-sm">Standard View</Link>
-            <Link href="/timelines" className="text-[#faf6f0] hover:text-[#d4a574]">Timelines</Link>
+            <Link href={`/timeline/${timeline.id}`} className="prophecy-button-sm px-4 py-2 rounded-full">Standard View</Link>
+            <Link href="/timelines" className="px-4 py-2 rounded-full border border-white/30 text-[#faf6f0] hover:text-[#d4a574] hover:border-[#d4a574] transition-colors">Timelines</Link>
           </div>
         </div>
       </nav>
 
       <section className="pt-20 pb-6 bg-[#faf6f0] min-h-screen">
-        <div className="max-w-7xl mx-auto px-4">
-          <div className="mb-6">
-            <h1 className="font-display text-3xl md:text-4xl font-bold text-[#1e3a5f]">{timeline.name}</h1>
+        <div className="w-full px-2 sm:px-4 lg:px-6">
+          <div className="mb-6 px-2 sm:px-4 lg:px-12 text-center">
+            <h1 className="font-display text-3xl md:text-4xl font-bold text-[#1e3a5f] break-words">{timeline.name}</h1>
             {timeline.description && (
-              <p className="text-[#2c5f6f] mt-2">{timeline.description}</p>
+              <p className="text-[#2c5f6f] mt-2 max-w-3xl mx-auto">{timeline.description}</p>
             )}
           </div>
 
-          <InfiniteTimeline submissions={submissions} height={320} />
+          <InfiniteTimeline submissions={submissions} height="72vh" />
         </div>
       </section>
     </>

@@ -2,6 +2,7 @@ import Head from 'next/head';
 import Link from 'next/link';
 import { useState, useEffect, useCallback } from 'react';
 import { createClient } from '@supabase/supabase-js';
+import ContentPreview from '../components/content-preview';
 
 // Supabase client with fallback for environment variables
 const getSupabaseClient = () => {
@@ -388,6 +389,9 @@ function TimelineItem({ submission, index }) {
           </div>
         )}
         
+        {/* Inline content previews: images, videos, audio, scriptures */}
+        <ContentPreview contents={submission.submission_content || []} variant="row" />
+
         <div className="flex items-center space-x-4 text-xs text-[#2c5f6f]">
           <span>Created: {new Date(submission.created_at).toLocaleDateString()}</span>
           <span>•</span>

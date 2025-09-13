@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import { createClient } from '@supabase/supabase-js';
+import ContentPreview from '../../components/content-preview';
 
 // Supabase client
 const supabase = process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
@@ -629,6 +630,10 @@ function HorizontalTimelineItem({ submission, index, style }) {
             <p className="text-[#1e3a5f] font-semibold text-lg">{getScriptureContent()}</p>
           </div>
         )}
+
+        {style !== 'compact' && (
+          <ContentPreview contents={submission.submission_content || []} variant="row" />
+        )}
         
         <div className={`text-xs text-[#2c5f6f] ${style !== 'compact' ? 'flex items-center justify-between pt-4 border-t border-[#87ceeb]/20' : ''}`}>
           {style === 'compact' ? (
@@ -849,6 +854,9 @@ function TimelineItem({ submission, index, style = 'list', showNode = true }) {
             <p className="text-[#1e3a5f] font-semibold text-lg">{getScriptureContent()}</p>
           </div>
         )}
+
+        {/* Inline content previews */}
+        <ContentPreview contents={submission.submission_content || []} variant="row" />
         
         <div className="flex items-center justify-between pt-4 border-t border-[#87ceeb]/20">
           <div className="flex items-center space-x-4 text-xs text-[#2c5f6f]">
@@ -950,6 +958,8 @@ function GridItem({ submission, index, style = 'full' }) {
           <p className="text-[#1e3a5f] font-semibold text-sm">{getScriptureContent()}</p>
         </div>
       )}
+
+      <ContentPreview contents={submission.submission_content || []} variant="row" />
       
       <div className="flex items-center justify-between text-xs text-[#2c5f6f] pt-3 border-t border-[#87ceeb]/20">
         <div className="flex items-center space-x-2">

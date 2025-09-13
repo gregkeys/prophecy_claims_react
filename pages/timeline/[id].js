@@ -325,6 +325,15 @@ export default function TimelineDetail({ timeline, submissions }) {
                 >
                   3D View
                 </Link>
+
+                {/* Detailed Timeline Link */}
+                <Link
+                  href={`/timeline/detailed/${timeline.id}`}
+                  className="prophecy-button-sm px-4 py-2 text-sm"
+                  title="Open Detailed Infinite Timeline"
+                >
+                  Detailed View
+                </Link>
               </div>
             </div>
           </div>

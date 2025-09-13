@@ -7,8 +7,10 @@ import { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 // - Extracts a date from timeframe content or created_at
 export default function InfiniteTimeline({ submissions = [], height = 260 }) {
   const canvasRef = useRef(null);
+  const containerRef = useRef(null);
   const overlayRef = useRef(null);
   const [dpr, setDpr] = useState(1);
+  const [containerWidth, setContainerWidth] = useState(0);
   const [panX, setPanX] = useState(0);
   const [scale, setScale] = useState(1); // 1 = base; higher = zoom in
   const [hoverInfo, setHoverInfo] = useState(null);
@@ -98,12 +100,29 @@ export default function InfiniteTimeline({ submissions = [], height = 260 }) {
     return { unit: 'day', stepMs: day, fmt: (d) => d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) };
   }, [msPerPx]);
 
-  // Resize handling
+  // Resize handling (DPR + container width)
   useEffect(() => {
-    const handle = () => setDpr(window.devicePixelRatio || 1);
-    handle();
-    window.addEventListener('resize', handle);
-    return () => window.removeEventListener('resize', handle);
+    setDpr(window.devicePixelRatio || 1);
+    const onWindowResize = () => setDpr(window.devicePixelRatio || 1);
+    window.addEventListener('resize', onWindowResize);
+
+    const el = containerRef.current;
+    if (!el) return () => window.removeEventListener('resize', onWindowResize);
+    const ro = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        const w = entry.contentRect?.width || el.clientWidth || 0;
+        setContainerWidth(Math.max(0, Math.floor(w)));
+      }
+    });
+    ro.observe(el);
+    // Initial measure
+    const initW = el.getBoundingClientRect().width || el.clientWidth || 0;
+    setContainerWidth(Math.max(0, Math.floor(initW)));
+
+    return () => {
+      window.removeEventListener('resize', onWindowResize);
+      ro.disconnect();
+    };
   }, []);
 
   // Wheel zoom / pan
@@ -158,9 +177,8 @@ export default function InfiniteTimeline({ submissions = [], height = 260 }) {
     const canvas = canvasRef.current;
     const overlay = overlayRef.current;
     if (!canvas || !overlay) return;
-
-    const rect = canvas.getBoundingClientRect();
-    const width = Math.max(400, rect.width);
+    const width = Math.max(300, containerWidth);
+    if (width <= 0) return;
     const heightPx = height;
     canvas.width = Math.floor(width * dpr);
     canvas.height = Math.floor(heightPx * dpr);
@@ -191,7 +209,7 @@ export default function InfiniteTimeline({ submissions = [], height = 260 }) {
     const tStart = xToTime(0, width);
     const first = Math.floor(tStart / step) * step;
     ctx.fillStyle = '#2c5f6f';
-    ctx.strokeStyle = 'rgba(44,95,111,0.25)';
+    ctx.strokeStyle = 'rgba(44,95,111,0.35)';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'top';
     ctx.font = '12px ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto';
@@ -258,7 +276,7 @@ export default function InfiniteTimeline({ submissions = [], height = 260 }) {
       canvas.removeEventListener('pointermove', onMove);
       canvas.removeEventListener('pointerleave', onLeave);
     };
-  }, [dpr, height, msPerPx, panX, points, tickSpec, timeToX, xToTime]);
+  }, [containerWidth, dpr, height, msPerPx, panX, points, tickSpec, timeToX, xToTime]);
 
   return (
     <div className="w-full">
@@ -272,7 +290,7 @@ export default function InfiniteTimeline({ submissions = [], height = 260 }) {
           <button className="prophecy-button-sm" onClick={() => { setScale(1); setPanX(0); }}>Reset</button>
         </div>
       </div>
-      <div className="relative w-full" style={{ height }}>
+      <div ref={containerRef} className="relative w-full" style={{ height }}>
         <canvas ref={canvasRef} className="w-full h-full rounded-lg shadow-sm bg-[#faf6f0]" />
         {hoverInfo && (
           <div

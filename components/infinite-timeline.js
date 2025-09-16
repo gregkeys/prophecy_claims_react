@@ -277,7 +277,7 @@ export default function InfiniteTimeline({ submissions = [], height = '70vh' }) 
     // Midline (high contrast)
     const midY = Math.round(heightPx / 2);
     ctx.strokeStyle = '#1e3a5f';
-    ctx.lineWidth = 2.5;
+    ctx.lineWidth = 8; // even thicker baseline for stronger visual weight
     ctx.beginPath();
     ctx.moveTo(0, midY);
     ctx.lineTo(width, midY);
@@ -308,33 +308,126 @@ export default function InfiniteTimeline({ submissions = [], height = '70vh' }) 
     ctx.textBaseline = 'top';
     ctx.font = '12px ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto';
 
+    // Month bracket when months (or days) are visible
+    if (tickSpec.unit === 'month' || tickSpec.unit === 'day') {
+      const tEnd = xToTime(width, width);
+      const startDate = new Date(tStart);
+      // Use UTC to avoid DST/timezone drift and start from the month that contains tStart
+      const monthStart = new Date(Date.UTC(startDate.getUTCFullYear(), startDate.getUTCMonth(), 1));
+
+      const yBase = midY - 18; // slightly higher above the thick baseline
+      const bracketHeight = 10;
+      const minSpanPx = 20;
+      const insetPx = 0; // no extra inset to keep gap precise
+      // Scale the inter-month gap by the visual month width, not raw scale
+      const maxTotalGapPx = 120; // at high zoom (wide months)
+      const maxShiftRightPx = 30;
+      const minTotalGapPx = 4;   // at far zoom-out (narrow months)
+      const minShiftRightPx = 2;
+      const dayMsLocal = 24 * 60 * 60 * 1000;
+      const monthMsLocal = 30 * dayMsLocal;
+      const monthWidthPx = monthMsLocal / msPerPx;
+      const visibleMinMonthPx = 80;  // close to tick density threshold for months
+      const visibleMaxMonthPx = 600; // beyond this we consider fully zoomed for months
+      const z = Math.max(0, Math.min(1, (monthWidthPx - visibleMinMonthPx) / (visibleMaxMonthPx - visibleMinMonthPx)));
+      const totalGapPx = minTotalGapPx + z * (maxTotalGapPx - minTotalGapPx);
+      const gapHalfPx = totalGapPx / 2;
+      const gapShiftPx = minShiftRightPx + z * (maxShiftRightPx - minShiftRightPx);
+      const leftEpsilonPx = 4; // small crisp boundary near next month's tick
+      const leftEpsilonMs = msPerPx * leftEpsilonPx;
+      const rightStartOffsetMs = msPerPx * (gapShiftPx + gapHalfPx); // start bracket this far right of month start
+      
+      ctx.save();
+      ctx.strokeStyle = '#c37a45';
+      ctx.lineWidth = 2;
+      ctx.lineCap = 'round';
+      for (let d = new Date(monthStart); d.getTime() <= tEnd; d.setUTCMonth(d.getUTCMonth() + 1)) {
+        const startMs = d.getTime();
+        const endMs = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 1, 1)).getTime();
+        // Create a small pixel gap centered on the month boundary and align near day ticks
+        // Right bracket (start of the current month) sits to the right creating a 120px gap centered 60px to the right of the boundary
+        const adjStartMs = startMs + rightStartOffsetMs;
+        // Left bracket (end of the current month) ends just left of the next month's tick for a crisp boundary
+        const adjEndMs = endMs - leftEpsilonMs;
+        const sx = timeToX(adjStartMs, width);
+        const ex = timeToX(adjEndMs, width);
+        const left = Math.max(0, sx);
+        const right = Math.min(width, ex);
+        const innerLeft = left + insetPx;
+        const innerRight = right - insetPx;
+        const span = innerRight - innerLeft;
+        if (span < minSpanPx) continue;
+
+        // rounded-corner bracket path starting at month start and ending at month end
+        const radius = Math.min(10, Math.max(6, Math.min(span * 0.1, 12))); // match corner curvature to span
+        const topY = yBase - bracketHeight;
+
+        ctx.beginPath();
+        // up-left corner
+        ctx.moveTo(innerLeft, yBase);
+        ctx.quadraticCurveTo(innerLeft, topY, innerLeft + radius, topY);
+        // top straight segment
+        ctx.lineTo(innerRight - radius, topY);
+        // down-right corner
+        ctx.quadraticCurveTo(innerRight, topY, innerRight, yBase);
+        ctx.stroke();
+      }
+      ctx.restore();
+    }
+
     for (let t = first; t < xToTime(width, width) + step; t += step) {
       const x = timeToX(t, width);
-      ctx.beginPath();
-      ctx.moveTo(x, midY - 24);
-      ctx.lineTo(x, midY + 24);
-      ctx.stroke();
+      // Year markers as circles on the baseline; keep line ticks for finer units
+      if (tickSpec.unit === 'year') {
+        ctx.save();
+        const radius = 9; // larger year node
+        ctx.fillStyle = '#1e3a5f'; // solid node without border
+        ctx.beginPath();
+        ctx.arc(x, midY, radius, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+      } else if (tickSpec.unit === 'month') {
+        // Month boundary as a small circle on the baseline
+        ctx.save();
+        const mr = 6; // slightly larger to align visually with bracket corners
+        ctx.fillStyle = '#1e3a5f';
+        ctx.beginPath();
+        ctx.arc(x, midY, mr, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+      } else {
+        // Finer units (day) keep short tick lines
+        ctx.save();
+        ctx.strokeStyle = 'rgba(30,58,95,0.35)';
+        ctx.beginPath();
+        ctx.moveTo(x, midY - 10);
+        ctx.lineTo(x, midY + 10);
+        ctx.stroke();
+        ctx.restore();
+      }
 
       const label = tickSpec.fmt(new Date(t));
       const text = String(label);
       const padX = 6;
       const padY = 3;
+      // Larger font for year labels
+      const isYear = tickSpec.unit === 'year';
+      ctx.save();
+      ctx.font = `${isYear ? '600 ' : ''}${isYear ? 14 : 12}px ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto`;
       const metrics = ctx.measureText(text);
       const tw = Math.ceil(metrics.width);
-      const th = 16;
+      const th = isYear ? 20 : 16;
       const rx = x - (tw / 2) - padX;
       const ry = midY + 18;
       // label background
-      ctx.save();
       ctx.fillStyle = 'rgba(250,246,240,0.85)';
-      ctx.strokeStyle = 'rgba(212,165,116,0.35)';
       drawRoundedRect(ctx, rx, ry, tw + padX * 2, th, 6);
       ctx.fill();
-      ctx.stroke();
-      ctx.restore();
+      // no stroke (border) around the year label background
       // label text
       ctx.fillStyle = '#1e3a5f';
       ctx.fillText(text, x, ry + padY);
+      ctx.restore();
     }
 
     if (points.length === 0) {
@@ -418,7 +511,7 @@ export default function InfiniteTimeline({ submissions = [], height = '70vh' }) 
       canvas.removeEventListener('pointermove', onMove);
       canvas.removeEventListener('pointerleave', onLeave);
     };
-  }, [containerWidth, dpr, height, msPerPx, panX, points, tickSpec, timeToX, xToTime]);
+  }, [containerWidth, dpr, height, msPerPx, panX, points, tickSpec, timeToX, xToTime, scale]);
 
   return (
     <div className="w-full relative">

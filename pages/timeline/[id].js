@@ -326,6 +326,15 @@ export default function TimelineDetail({ timeline, submissions }) {
                   3D View
                 </Link>
 
+                {/* Canvas View Link */}
+                <Link
+                  href={`/timeline/canvas/${timeline.id}`}
+                  className="prophecy-button-sm px-4 py-2 text-sm"
+                  title="Open Canvas Timeline"
+                >
+                  Canvas View
+                </Link>
+
                 {/* Detailed Timeline Link */}
                 <Link
                   href={`/timeline/detailed/${timeline.id}`}

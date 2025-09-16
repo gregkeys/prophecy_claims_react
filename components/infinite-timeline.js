@@ -29,16 +29,71 @@ export default function InfiniteTimeline({ submissions = [], height = '70vh' }) 
       return Number.isFinite(parsed) ? parsed : null;
     };
 
+    const parseEventStyle = (contents) => {
+      if (!contents) return null;
+      const styleItem = contents.find((c) => (c?.type || '').toLowerCase() === 'timeline_style');
+      if (!styleItem) return null;
+      // Parse strictly from metadata jsonb
+      const raw = styleItem.metadata;
+      if (!raw) return null;
+      try {
+        const root = typeof raw === 'string' ? JSON.parse(raw) : raw;
+        const src = root?.timeline_style ? root.timeline_style : root;
+
+        const toPos = (v) => {
+          const val = (v || '').toString().toLowerCase();
+          if (['on', 'center', 'on_line'].includes(val)) return 'on';
+          if (['above', 'above_line'].includes(val)) return 'above';
+          if (['below', 'below_line'].includes(val)) return 'below';
+          return 'above';
+        };
+
+        const toOutline = (v) => {
+          const val = (v || '').toString().toLowerCase();
+          if (['none'].includes(val)) return 'none';
+          if (['bold'].includes(val)) return 'bold';
+          if (['subtle','outline'].includes(val)) return 'subtle';
+          return 'subtle';
+        };
+
+        const toBorderStyle = (v) => {
+          const val = (v || '').toString().toLowerCase();
+          if (['none','solid','dashed','dotted'].includes(val)) return val;
+          return 'solid';
+        };
+
+        const normalize = {
+          colors: {
+            background: src?.colors?.background || null,
+            border: src?.colors?.border || null,
+            text: src?.colors?.text || null,
+          },
+          textLayout: src?.textLayout || src?.text_layout || 'left',
+          design: {
+            outlineStyle: toOutline(src?.design?.outlineStyle || src?.design?.outline_style),
+            linePosition: (src?.design?.linePosition || src?.design?.line_position || 'center').toString().toLowerCase(), // left|center|right
+            borderStyle: toBorderStyle(src?.design?.borderStyle || src?.design?.border_style),
+          },
+          timelinePosition: toPos(src?.timelinePosition || src?.timeline_position),
+        };
+        return normalize;
+      } catch (e) {
+        return null;
+      }
+    };
+
     return submissions
       .map((s) => {
         const ts = parseTimeframe(s.submission_content) || Date.parse(s.created_at || '') || null;
+        const style = parseEventStyle(s.submission_content);
         return ts
           ? {
               id: s.id,
               title: s.title || 'Untitled',
               description: s.description || '',
               ts,
-              submission: s
+              submission: s,
+              style
             }
           : null;
       })
@@ -118,9 +173,12 @@ export default function InfiniteTimeline({ submissions = [], height = '70vh' }) 
     const CARD_WIDTH = 320;
     const H_SPACING = 12;
     const items = overlayBuckets.map((b) => {
+      // Choose side per bucket based on contained item styles (below > on > above)
+      const positions = (b.items || []).map((p) => (p.style?.timelinePosition || 'above').toLowerCase());
+      const side = positions.includes('below') ? 'below' : positions.includes('on') ? 'on' : 'above';
       const desiredLeft = (b.x || 0) - CARD_WIDTH / 2;
       const left = Math.max(8, Math.min(desiredLeft, (containerWidth || 300) - CARD_WIDTH - 8));
-      return { bucket: b, left, right: left + CARD_WIDTH };
+      return { bucket: b, left, right: left + CARD_WIDTH, side };
     }).sort((a, b) => a.left - b.left);
 
     const levelsRight = [];
@@ -450,24 +508,67 @@ export default function InfiniteTimeline({ submissions = [], height = '70vh' }) 
       buckets.get(key).items.push(p);
     });
 
-    // Draw point markers
+    // Draw point markers with optional per-event styling
     points.forEach((p) => {
       const x = timeToX(p.ts, width);
-      ctx.fillStyle = '#e89547';
+      const style = p.style || {};
+      const colorFill = style?.colors?.background || '#e89547';
+      const colorStroke = style?.colors?.border || '#e89547';
+      const outlineStyle = (style?.design?.outlineStyle || 'subtle').toLowerCase(); // none|subtle|bold
+      const borderStyle = (style?.design?.borderStyle || 'solid').toLowerCase(); // none|solid|dashed|dotted
+      const linePosition = (style?.design?.linePosition || 'center').toLowerCase(); // left|center|right
+      const timelinePosition = (style?.timelinePosition || 'above').toLowerCase(); // above|on|below
+
+      // Node
       ctx.save();
-      ctx.shadowColor = 'rgba(232,149,71,0.8)';
-      ctx.shadowBlur = 8;
+      ctx.shadowColor = 'rgba(232,149,71,0.5)';
+      ctx.shadowBlur = 6;
       ctx.beginPath();
-      ctx.arc(x, midY, 4, 0, Math.PI * 2);
-      ctx.fill();
+      const nodeRadius = outlineStyle === 'bold' ? 6 : 5;
+      ctx.arc(x, midY, nodeRadius, 0, Math.PI * 2);
+      if (outlineStyle === 'none') {
+        ctx.fillStyle = colorFill;
+        ctx.fill();
+      } else if (outlineStyle === 'bold') {
+        ctx.fillStyle = colorFill;
+        ctx.fill();
+        ctx.strokeStyle = colorStroke;
+        ctx.lineWidth = 3;
+        ctx.stroke();
+      } else {
+        // subtle
+        ctx.fillStyle = colorFill;
+        ctx.fill();
+        ctx.strokeStyle = colorStroke;
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+      }
       ctx.restore();
-      // small vertical marker for extra visibility
-      ctx.strokeStyle = '#e89547';
-      ctx.lineWidth = 2;
-      ctx.beginPath();
-      ctx.moveTo(x, midY - 72);
-      ctx.lineTo(x, midY + 32);
-      ctx.stroke();
+
+      // Stem
+      ctx.save();
+      if (borderStyle === 'none') {
+        ctx.restore();
+      } else {
+        ctx.strokeStyle = colorStroke;
+        ctx.lineWidth = 2;
+        if (borderStyle === 'dashed') ctx.setLineDash([6, 4]);
+        else if (borderStyle === 'dotted') ctx.setLineDash([2, 4]);
+        else ctx.setLineDash([]);
+        let topY = midY - 72;
+        let bottomY = midY + 32;
+        if (timelinePosition === 'above') { topY = midY - 72; bottomY = midY - (linePosition === 'center' ? 0 : (linePosition === 'left' ? 8 : -8)); }
+        else if (timelinePosition === 'below') { topY = midY + (linePosition === 'center' ? 0 : (linePosition === 'left' ? -8 : 8)); bottomY = midY + 72; }
+        else { // on
+          topY = midY - 24;
+          bottomY = midY + 24;
+        }
+        ctx.beginPath();
+        ctx.moveTo(x, topY);
+        ctx.lineTo(x, bottomY);
+        ctx.stroke();
+        ctx.restore();
+      }
     });
 
     // Draw clusters
@@ -520,15 +621,34 @@ export default function InfiniteTimeline({ submissions = [], height = '70vh' }) 
         {/* Hover tooltip (uses cluster detection above) */}
         {/* Always-visible connectors and cards (one per bucket) */}
         {layoutCards.map((lc, idx) => {
-          const stemOffset = 160 + lc.level * 108 - 8; // distance from baseline to just under card
-          const cardTop = `calc(50% - ${160 + lc.level * 108}px)`;
+          const insidePx = 12; // how far the connector ends inside the card
+          const distAboveTop = 160 + lc.level * 108; // distance from baseline to card top (above)
+          const distBelowTop = 20 + lc.level * 108;  // distance from baseline to card top (below)
+          // Stem height stops inside the card by insidePx
+          const stemHeight = lc.side === 'below'
+            ? distBelowTop + insidePx
+            : distAboveTop - insidePx;
+          const cardTop = lc.side === 'below'
+            ? `calc(50% + ${distBelowTop}px)`
+            : lc.side === 'on'
+              ? `calc(50% - 12px)`
+              : `calc(50% - ${distAboveTop}px)`;
           return (
           <div key={`card-${idx}`} className="absolute left-0 top-0 w-full h-full pointer-events-none">
             {/* Stem connecting to baseline */}
-            <div
-              className="absolute"
-              style={{ left: `${Math.max(2, Math.min(containerWidth - 2, Math.round(lc.bucket.x))) - 1}px`, top: `calc(50% - ${stemOffset}px)`, width: '0px', height: `${stemOffset}px`, borderLeft: '2px solid #e89547', boxShadow: '0 0 8px rgba(232,149,71,0.6)' }}
-            />
+            {lc.side !== 'on' && (
+              <div
+                className="absolute"
+                style={{
+                  left: `${Math.max(2, Math.min(containerWidth - 2, Math.round(lc.bucket.x))) - 1}px`,
+                  top: lc.side === 'below' ? '50%' : `calc(50% - ${stemHeight}px)`,
+                  width: '0px',
+                  height: `${stemHeight}px`,
+                  borderLeft: '2px solid #e89547',
+                  boxShadow: '0 0 8px rgba(232,149,71,0.6)'
+                }}
+              />
+            )}
             {/* Rectangular info card */}
             <div
               className="absolute bg-white/95 backdrop-blur-sm border border-[#e3c292]/60 rounded-xl shadow-xl p-3 text-xs text-[#1e3a5f]"
@@ -542,13 +662,20 @@ export default function InfiniteTimeline({ submissions = [], height = '70vh' }) 
                   const dateStr = new Date(p.ts).toLocaleDateString();
                   const imgUrlRaw = img?.file_path || (img?.content || '');
                   const imgUrl = buildPublicUrl(imgUrlRaw);
+                  const style = p.style || {};
+                  const textColor = style?.colors?.text || '#1e3a5f';
+                  const subTextColor = style?.colors?.text ? style?.colors?.text : '#2c5f6f';
+                  const bgColor = style?.colors?.background || undefined;
+                  const borderColor = style?.colors?.border || undefined;
+                  const align = (style?.textLayout || 'left').toLowerCase();
+                  const alignClass = align === 'center' ? 'text-center' : align === 'right' ? 'text-right' : 'text-left';
                   return (
-                    <div key={p.id} className="flex items-start gap-3">
-                      {imgUrl && <img src={imgUrl} alt="thumb" className="w-10 h-10 rounded-md object-cover border border-[#e3c292]/60" />}
-                      <div className="min-w-0">
-                        <div className="font-semibold text-[#1e3a5f] truncate">{title}</div>
-                        {desc && <div className="text-[#2c5f6f] truncate">{desc}</div>}
-                        <div className="text-[10px] text-[#2c5f6f] mt-0.5">{dateStr}</div>
+                    <div key={p.id} className={`flex items-start gap-3 ${alignClass}`} style={{ color: textColor }}>
+                      {imgUrl && <img src={imgUrl} alt="thumb" className="w-10 h-10 rounded-md object-cover border" style={{ borderColor: borderColor || '#e3c292' }} />}
+                      <div className="min-w-0" style={{ backgroundColor: bgColor, borderColor, borderWidth: borderColor ? 1 : undefined, borderStyle: borderColor ? 'solid' : undefined }}>
+                        <div className="font-semibold truncate" style={{ color: textColor }}>{title}</div>
+                        {desc && <div className="truncate" style={{ color: subTextColor }}>{desc}</div>}
+                        <div className="text-[10px] mt-0.5" style={{ color: subTextColor }}>{dateStr}</div>
                       </div>
                     </div>
                   );

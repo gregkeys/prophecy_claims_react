@@ -48,17 +48,23 @@ export default function InfiniteTimeline({ submissions = [], height = '70vh' }) 
           return 'above';
         };
 
-        const toOutline = (v) => {
+        const toItemStyle = (v) => {
           const val = (v || '').toString().toLowerCase();
-          if (['none'].includes(val)) return 'none';
-          if (['bold'].includes(val)) return 'bold';
-          if (['subtle','outline'].includes(val)) return 'subtle';
-          return 'subtle';
+          if (['marker + text','marker_text','marker+text'].includes(val)) return 'marker_text';
+          if (['chat bubble','chat_bubble'].includes(val)) return 'chat_bubble';
+          if (['chat square','chat_square'].includes(val)) return 'chat_square';
+          if (['marker'].includes(val)) return 'marker';
+          if (['text'].includes(val)) return 'text';
+          if (['circle'].includes(val)) return 'circle';
+          if (['card'].includes(val)) return 'card';
+          // Back-compat: map old outline styles to nearest
+          if (['subtle','bold','none','outline'].includes(val)) return 'marker';
+          return 'card';
         };
 
         const toBorderStyle = (v) => {
           const val = (v || '').toString().toLowerCase();
-          if (['none','solid','dashed','dotted'].includes(val)) return val;
+          if (['none','solid','dashed','dotted','drop shadow','drop_shadow','glow'].includes(val)) return val;
           return 'solid';
         };
 
@@ -70,7 +76,7 @@ export default function InfiniteTimeline({ submissions = [], height = '70vh' }) 
           },
           textLayout: src?.textLayout || src?.text_layout || 'left',
           design: {
-            outlineStyle: toOutline(src?.design?.outlineStyle || src?.design?.outline_style),
+            itemStyle: toItemStyle(src?.design?.style || src?.design?.outlineStyle || src?.design?.outline_style),
             linePosition: (src?.design?.linePosition || src?.design?.line_position || 'center').toString().toLowerCase(), // left|center|right
             borderStyle: toBorderStyle(src?.design?.borderStyle || src?.design?.border_style),
           },
@@ -176,9 +182,16 @@ export default function InfiniteTimeline({ submissions = [], height = '70vh' }) 
       // Choose side per bucket based on contained item styles (below > on > above)
       const positions = (b.items || []).map((p) => (p.style?.timelinePosition || 'above').toLowerCase());
       const side = positions.includes('below') ? 'below' : positions.includes('on') ? 'on' : 'above';
+      // Determine dominant style for premium shapes
+      const styleOrder = ['chat_bubble','chat_square','marker_text','text','marker','circle','card'];
+      const styles = (b.items || []).map((p) => (p.style?.design?.itemStyle || 'card').toLowerCase());
+      const dominantStyle = styles.sort((a, b2) => styleOrder.indexOf(a) - styleOrder.indexOf(b2))[0] || 'card';
+      // Aggregate colors/border style from first styled item
+      const firstStyled = (b.items || []).find((p) => p.style && (p.style.colors || p.style.design));
+      const styleMeta = firstStyled?.style || {};
       const desiredLeft = (b.x || 0) - CARD_WIDTH / 2;
       const left = Math.max(8, Math.min(desiredLeft, (containerWidth || 300) - CARD_WIDTH - 8));
-      return { bucket: b, left, right: left + CARD_WIDTH, side };
+      return { bucket: b, left, right: left + CARD_WIDTH, side, styleMode: dominantStyle, styleMeta };
     }).sort((a, b) => a.left - b.left);
 
     const levelsRight = [];
@@ -514,8 +527,8 @@ export default function InfiniteTimeline({ submissions = [], height = '70vh' }) 
       const style = p.style || {};
       const colorFill = style?.colors?.background || '#e89547';
       const colorStroke = style?.colors?.border || '#e89547';
-      const outlineStyle = (style?.design?.outlineStyle || 'subtle').toLowerCase(); // none|subtle|bold
-      const borderStyle = (style?.design?.borderStyle || 'solid').toLowerCase(); // none|solid|dashed|dotted
+      const itemStyle = (style?.design?.itemStyle || 'card').toLowerCase(); // card|marker|text|marker_text|circle|chat_bubble|chat_square
+      const borderStyle = (style?.design?.borderStyle || 'solid').toLowerCase(); // none|solid|dashed|dotted|drop shadow|glow
       const linePosition = (style?.design?.linePosition || 'center').toLowerCase(); // left|center|right
       const timelinePosition = (style?.timelinePosition || 'above').toLowerCase(); // above|on|below
 
@@ -524,23 +537,13 @@ export default function InfiniteTimeline({ submissions = [], height = '70vh' }) 
       ctx.shadowColor = 'rgba(232,149,71,0.5)';
       ctx.shadowBlur = 6;
       ctx.beginPath();
-      const nodeRadius = outlineStyle === 'bold' ? 6 : 5;
+      const nodeRadius = itemStyle === 'circle' ? 8 : 6;
       ctx.arc(x, midY, nodeRadius, 0, Math.PI * 2);
-      if (outlineStyle === 'none') {
-        ctx.fillStyle = colorFill;
-        ctx.fill();
-      } else if (outlineStyle === 'bold') {
-        ctx.fillStyle = colorFill;
-        ctx.fill();
+      ctx.fillStyle = colorFill;
+      ctx.fill();
+      if (['marker','marker_text','circle'].includes(itemStyle)) {
         ctx.strokeStyle = colorStroke;
-        ctx.lineWidth = 3;
-        ctx.stroke();
-      } else {
-        // subtle
-        ctx.fillStyle = colorFill;
-        ctx.fill();
-        ctx.strokeStyle = colorStroke;
-        ctx.lineWidth = 1.5;
+        ctx.lineWidth = 2;
         ctx.stroke();
       }
       ctx.restore();
@@ -555,6 +558,13 @@ export default function InfiniteTimeline({ submissions = [], height = '70vh' }) 
         if (borderStyle === 'dashed') ctx.setLineDash([6, 4]);
         else if (borderStyle === 'dotted') ctx.setLineDash([2, 4]);
         else ctx.setLineDash([]);
+        if (borderStyle === 'drop shadow') {
+          ctx.shadowColor = colorStroke;
+          ctx.shadowBlur = 8;
+        } else if (borderStyle === 'glow') {
+          ctx.shadowColor = colorStroke;
+          ctx.shadowBlur = 14;
+        }
         let topY = midY - 72;
         let bottomY = midY + 32;
         if (timelinePosition === 'above') { topY = midY - 72; bottomY = midY - (linePosition === 'center' ? 0 : (linePosition === 'left' ? 8 : -8)); }
@@ -649,11 +659,38 @@ export default function InfiniteTimeline({ submissions = [], height = '70vh' }) 
                 }}
               />
             )}
-            {/* Rectangular info card */}
+            {/* Premium/standard card container */}
             <div
-              className="absolute bg-white/95 backdrop-blur-sm border border-[#e3c292]/60 rounded-xl shadow-xl p-3 text-xs text-[#1e3a5f]"
-              style={{ left: `${Math.round(lc.left)}px`, top: cardTop, width: '320px' }}
+              className="absolute p-3 text-xs"
+              style={{
+                left: `${Math.round(lc.left)}px`,
+                top: cardTop,
+                width: '320px',
+                backgroundColor: lc.styleMode === 'text' ? 'transparent' : 'rgba(255,255,255,0.95)',
+                borderColor: lc.styleMode === 'text' ? 'transparent' : '#e3c292',
+                borderWidth: lc.styleMode === 'text' ? 0 : 1,
+                borderStyle: lc.styleMode === 'text' ? 'none' : 'solid',
+                borderRadius: lc.styleMode === 'chat_square' ? '10px' : '12px',
+                boxShadow: lc.styleMeta?.design?.borderStyle === 'glow' ? `0 0 16px ${lc.styleMeta?.colors?.border || '#00000055'}` : lc.styleMeta?.design?.borderStyle === 'drop shadow' ? `0 6px 14px ${lc.styleMeta?.colors?.border || '#00000055'}` : '0 4px 10px rgba(0,0,0,0.08)'
+              }}
             >
+              {/* Chat bubble tail */}
+              {lc.styleMode === 'chat_bubble' && (
+                <div
+                  className="absolute"
+                  style={{
+                    left: `${Math.max(6, Math.min(314, Math.round(lc.bucket.x - lc.left))) - 6}px`,
+                    bottom: lc.side === 'below' ? 'auto' : '-8px',
+                    top: lc.side === 'below' ? '-8px' : 'auto',
+                    width: 0,
+                    height: 0,
+                    borderLeft: '8px solid transparent',
+                    borderRight: '8px solid transparent',
+                    borderTop: lc.side === 'below' ? '8px solid rgba(255,255,255,0.95)' : 'none',
+                    borderBottom: lc.side !== 'below' ? '8px solid rgba(255,255,255,0.95)' : 'none'
+                  }}
+                />
+              )}
               <div className="space-y-3 max-h-56 overflow-y-auto">
                 {lc.bucket.items.map((p) => {
                   const img = (p.submission?.submission_content || []).find((c) => ['image','images','photo'].includes((c.type||'').toLowerCase()) && (c.file_path || (c.content||'').startsWith('http')));
@@ -669,10 +706,20 @@ export default function InfiniteTimeline({ submissions = [], height = '70vh' }) 
                   const borderColor = style?.colors?.border || undefined;
                   const align = (style?.textLayout || 'left').toLowerCase();
                   const alignClass = align === 'center' ? 'text-center' : align === 'right' ? 'text-right' : 'text-left';
+                  const itemStyle = (style?.design?.itemStyle || 'card').toLowerCase();
+                  const borderStyle = (style?.design?.borderStyle || 'solid').toLowerCase();
+                  const cardStyle = {
+                    backgroundColor: itemStyle === 'text' ? 'transparent' : (bgColor || 'transparent'),
+                    color: textColor,
+                    borderColor: borderColor || undefined,
+                    borderWidth: borderColor ? 1 : undefined,
+                    borderStyle: borderColor ? 'solid' : undefined,
+                    boxShadow: borderStyle === 'drop shadow' ? `0 6px 14px ${borderColor || '#00000055'}` : borderStyle === 'glow' ? `0 0 16px ${borderColor || '#00000055'}` : undefined
+                  };
                   return (
                     <div key={p.id} className={`flex items-start gap-3 ${alignClass}`} style={{ color: textColor }}>
                       {imgUrl && <img src={imgUrl} alt="thumb" className="w-10 h-10 rounded-md object-cover border" style={{ borderColor: borderColor || '#e3c292' }} />}
-                      <div className="min-w-0" style={{ backgroundColor: bgColor, borderColor, borderWidth: borderColor ? 1 : undefined, borderStyle: borderColor ? 'solid' : undefined }}>
+                      <div className="min-w-0 rounded-md p-1" style={cardStyle}>
                         <div className="font-semibold truncate" style={{ color: textColor }}>{title}</div>
                         {desc && <div className="truncate" style={{ color: subTextColor }}>{desc}</div>}
                         <div className="text-[10px] mt-0.5" style={{ color: subTextColor }}>{dateStr}</div>

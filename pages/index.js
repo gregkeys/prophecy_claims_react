@@ -42,17 +42,7 @@ export default function Home({ claims }) {
         <link rel="icon" href="/favicon.ico" />
       </Head>
 
-      {/* Beta Warning Banner */}
-      <div className="fixed top-0 left-0 right-0 z-50 bg-gradient-to-r from-[#e89547] to-[#f4d03f] text-[#1e3a5f] text-center py-2 px-4 font-semibold text-sm shadow-lg">
-        <div className="flex items-center justify-center gap-2">
-          <span className="animate-pulse">🚧</span>
-          <span>BETA VERSION - Under Active Development</span>
-          <span className="animate-pulse">🚧</span>
-        </div>
-        <div className="text-xs opacity-80 mt-1">
-          Experience may vary • Features being added daily • Join our journey to divine truth
-        </div>
-      </div>
+      
 
       {/* Hero Section */}
       <section className="relative min-h-screen flex items-center justify-center overflow-hidden pt-16">
@@ -77,6 +67,10 @@ export default function Home({ claims }) {
               Create and track prophetic revelations on the ultimate divine timeline. 
               Submit claims, witness fulfillments, and explore the intersection of prophecy and reality.
             </p>
+
+            <div className="text-[#faf6f0] italic mb-6 max-w-3xl mx-auto">
+              John 14:29 — “And now I have told you before it comes, that when it does come to pass, you may believe.”
+            </div>
 
             <div className="flex flex-col sm:flex-row gap-4 justify-center items-center mb-12">
               <a 

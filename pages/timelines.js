@@ -25,7 +25,6 @@ const supabase = getSupabaseClient();
 
 export default function Timelines({ timelines }) {
   const [isVisible, setIsVisible] = useState(false);
-  const [selectedTimeline, setSelectedTimeline] = useState(null);
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
@@ -94,31 +93,19 @@ export default function Timelines({ timelines }) {
                 key={timeline.id} 
                 timeline={timeline} 
                 index={index}
-                onClick={() => setSelectedTimeline(timeline)}
               />
             ))}
           </div>
         </div>
       </section>
-
-      {/* Timeline Detail Modal */}
-      {selectedTimeline && (
-        <TimelineModal 
-          timeline={selectedTimeline} 
-          onClose={() => setSelectedTimeline(null)} 
-        />
-      )}
     </>
   );
 }
 
-function TimelineCard({ timeline, index, onClick }) {
+function TimelineCard({ timeline, index }) {
   return (
-    <div 
-      className={`prophecy-card cursor-pointer transform hover:scale-105 transition-all duration-300 animate-fade-in-up`}
-      style={{ animationDelay: `${index * 0.1}s` }}
-      onClick={onClick}
-    >
+    <Link href={`/timeline/detailed/${timeline.id}`} className={`prophecy-card cursor-pointer transform hover:scale-105 transition-all duration-300 animate-fade-in-up flex flex-col h-full`}
+      style={{ animationDelay: `${index * 0.1}s` }}>
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center space-x-2">
           <div className="w-3 h-3 bg-gradient-to-r from-[#d4a574] to-[#f4d03f] rounded-full"></div>
@@ -138,37 +125,18 @@ function TimelineCard({ timeline, index, onClick }) {
       </h3>
       
       {timeline.description && (
-        <p className="text-[#2c5f6f] text-sm mb-4 line-clamp-3">
-          {timeline.description}
-        </p>
+        <div className="bg-gradient-to-r from-[#1e3a5f]/5 to-[#2c5f6f]/5 border border-[#87ceeb]/20 rounded-lg p-3 mb-4">
+          <p className="text-[#2c5f6f] text-sm line-clamp-4">{timeline.description}</p>
+        </div>
       )}
-      
-      <div className="flex items-center justify-between text-xs text-[#2c5f6f]">
+
+      <div className="mt-auto pt-4 border-t border-[#87ceeb]/20 flex items-center justify-between text-xs text-[#2c5f6f]">
         <span>{timeline.submission_count} entries</span>
-        <span>{new Date(timeline.created_at).toLocaleDateString('en-US', { 
-          year: 'numeric', 
-          month: 'short', 
-          day: 'numeric' 
+        <span>{new Date(timeline.created_at).toLocaleDateString('en-US', {
+          year: 'numeric', month: 'short', day: 'numeric'
         })}</span>
       </div>
-      
-      <div className="mt-4 pt-4 border-t border-[#87ceeb]/20">
-        <div className="flex items-center justify-between gap-4">
-          <div className="flex items-center space-x-2 flex-1">
-            <span className="text-xs text-[#2c5f6f]">Style:</span>
-            <span className="text-xs font-medium text-[#1e3a5f] capitalize">
-              {timeline.style} • {timeline.orientation}
-            </span>
-          </div>
-          <Link 
-            href={`/timeline/${timeline.id}`}
-            className="text-xs text-[#d4a574] hover:text-[#e89547] transition-colors font-medium whitespace-nowrap"
-          >
-            Full View →
-          </Link>
-        </div>
-      </div>
-    </div>
+    </Link>
   );
 }
 

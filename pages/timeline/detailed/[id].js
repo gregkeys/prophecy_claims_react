@@ -1,9 +1,24 @@
 import Head from 'next/head';
 import Link from 'next/link';
+import { useEffect, useRef, useState } from 'react';
 import { createClient } from '@supabase/supabase-js';
 import InfiniteTimeline from '../../../components/infinite-timeline';
 
 export default function DetailedTimeline({ timeline, submissions }) {
+  const titleRef = useRef(null);
+  const [timelineHeight, setTimelineHeight] = useState(600);
+
+  useEffect(() => {
+    const update = () => {
+      const bottom = titleRef.current?.getBoundingClientRect()?.bottom || 140;
+      const viewport = typeof window !== 'undefined' ? (window.innerHeight || 800) : 800;
+      const available = Math.max(260, Math.floor(viewport - bottom - 16));
+      setTimelineHeight(available);
+    };
+    update();
+    window.addEventListener('resize', update);
+    return () => window.removeEventListener('resize', update);
+  }, []);
   if (!timeline) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-[#1e3a5f] to-[#2c5f6f]">
@@ -21,26 +36,18 @@ export default function DetailedTimeline({ timeline, submissions }) {
         <title>{timeline.name} - Detailed Timeline | Prophecy Claims</title>
         <meta name="description" content={timeline.description || `Explore the ${timeline.name} detailed infinite timeline.`} />
       </Head>
-      <nav className="fixed top-0 left-0 right-0 z-40 bg-[#1e3a5f]/95 backdrop-blur-sm border-b border-[#2c5f6f]">
-        <div className="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
-          <Link href="/" className="font-display text-2xl font-bold prophecy-gradient-text">Prophecy.Claims</Link>
-          <div className="flex items-center gap-3">
-            <Link href={`/timeline/${timeline.id}`} className="prophecy-button-sm px-4 py-2 rounded-full">Standard View</Link>
-            <Link href="/timelines" className="px-4 py-2 rounded-full border border-white/30 text-[#faf6f0] hover:text-[#d4a574] hover:border-[#d4a574] transition-colors">Timelines</Link>
-          </div>
-        </div>
-      </nav>
+      {/* Global header provided by _app.js */}
 
       <section className="pt-20 pb-6 bg-[#faf6f0] min-h-screen">
-        <div className="w-full px-2 sm:px-4 lg:px-6">
-          <div className="mb-6 px-2 sm:px-4 lg:px-12 text-center">
+        <div className="w-full px-0">
+          <div ref={titleRef} className="mb-6 px-4 sm:px-6 lg:px-12 text-center">
             <h1 className="font-display text-3xl md:text-4xl font-bold text-[#1e3a5f] break-words">{timeline.name}</h1>
             {timeline.description && (
               <p className="text-[#2c5f6f] mt-2 max-w-3xl mx-auto">{timeline.description}</p>
             )}
           </div>
 
-          <InfiniteTimeline submissions={submissions} height="72vh" />
+          <InfiniteTimeline submissions={submissions} height={timelineHeight} />
         </div>
       </section>
     </>

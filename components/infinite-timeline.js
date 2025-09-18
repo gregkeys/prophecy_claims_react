@@ -5,10 +5,11 @@ import { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 // - Clusters many items when crowded
 // - Expects submissions: [{ id, title, created_at, submission_content: [{ type, content }] }]
 // - Extracts a date from timeframe content or created_at
-export default function InfiniteTimeline({ submissions = [], height = '70vh' }) {
+export default function InfiniteTimeline({ submissions = [], height = '70vh', canEdit = false }) {
   const canvasRef = useRef(null);
   const containerRef = useRef(null);
   const overlayRef = useRef(null);
+  const [tool, setTool] = useState(null); // {id, x, y, ts}
   const [dpr, setDpr] = useState(1);
   const [containerWidth, setContainerWidth] = useState(0);
   const [panX, setPanX] = useState(0);
@@ -16,6 +17,8 @@ export default function InfiniteTimeline({ submissions = [], height = '70vh' }) 
   const [hoverInfo, setHoverInfo] = useState(null);
   const [dragging, setDragging] = useState(false);
   const dragStartRef = useRef({ x: 0, panAtStart: 0 });
+  const movedRef = useRef(false);
+  const pointerDownOnCanvasRef = useRef(false);
   const autoFramedRef = useRef(false);
 
   // Convert submissions to timeline points with timestamp
@@ -128,7 +131,28 @@ export default function InfiniteTimeline({ submissions = [], height = '70vh' }) 
     return span / approxPx;
   }, [domain]);
 
-  const msPerPx = baseMsPerPx / Math.max(0.1, scale);
+  // Zoom configuration
+  const DAY_MS = 24 * 60 * 60 * 1000;
+  const MIN_SCALE = 1e-6; // effectively infinite zoom-out
+
+  const getCanvasWidth = () => Math.max(1, canvasRef.current?.getBoundingClientRect()?.width || containerWidth || 1200);
+  const getMaxScale = (w) => {
+    const width = Math.max(1, w || getCanvasWidth());
+    // Max zoom corresponds to 24 hours across the canvas width
+    const targetMsPerPx = DAY_MS / width;
+    return Math.max(10, baseMsPerPx / targetMsPerPx);
+  };
+
+  // Minimum zoom: 12,000 years visible across the canvas
+  const getMinScale = (w) => {
+    const width = Math.max(1, w || getCanvasWidth());
+    const YEAR_MS = 365 * 24 * 60 * 60 * 1000;
+    const spanYears = 12000;
+    const targetMsPerPx = (spanYears * YEAR_MS) / width;
+    return Math.max(MIN_SCALE, baseMsPerPx / targetMsPerPx);
+  };
+
+  const msPerPx = baseMsPerPx / Math.max(MIN_SCALE, scale);
 
   const timeToX = useCallback(
     (ts, width) => {
@@ -205,26 +229,42 @@ export default function InfiniteTimeline({ submissions = [], height = '70vh' }) 
     });
   }, [overlayBuckets, containerWidth]);
 
-  // Ticks based on msPerPx
+  // Ticks based on msPerPx (supports year → month → day → hour)
   const tickSpec = useMemo(() => {
+    const hour = 60 * 60 * 1000;
     const day = 24 * 60 * 60 * 1000;
     const month = day * 30;
     const year = day * 365;
 
-    // Prefer months at scale >= 2, days at scale >= 8; otherwise years
+    // Choose unit based on visual resolution (ms per pixel)
     let baseUnit = 'year';
     let baseMs = year;
-    if (scale >= 8) {
+    if (msPerPx <= 2 * hour) {
+      baseUnit = 'hour';
+      baseMs = hour;
+    } else if (msPerPx <= 12 * hour) {
       baseUnit = 'day';
       baseMs = day;
-    } else if (scale >= 2) {
+    } else if (msPerPx <= 45 * day) {
       baseUnit = 'month';
       baseMs = month;
+    } else if (msPerPx >= (1000 * year) / 200) { // ~1000-year ticks when showing ~12k years
+      baseUnit = 'millennium';
+      baseMs = 1000 * year;
     }
 
-    // Ensure ticks are not overly dense
-    const minPxPerTick = 80; // labels remain readable
-    const multiples = baseUnit === 'year' ? [1, 2, 5, 10, 20, 50] : baseUnit === 'month' ? [1, 2, 3, 6, 12] : [1, 2, 5, 10, 15];
+    // Ensure ticks are not overly dense (allow denser ticks for hours)
+    const pxPerHour = hour / msPerPx;
+    const minPxPerTick = baseUnit === 'hour' ? 30 : 80; // allow 24 hourly segments
+    const multiples = baseUnit === 'millennium'
+      ? [1]
+      : baseUnit === 'year'
+      ? [1, 2, 5, 10, 20, 50]
+      : baseUnit === 'month'
+        ? [1, 2, 3, 6, 12]
+        : baseUnit === 'day'
+          ? [1, 2, 5, 10, 15]
+          : [1, 2, 3, 6, 12]; // hour (avoid 24h to prevent single tick)
     let stepMs = baseMs;
     let i = 0;
     while (stepMs / msPerPx < minPxPerTick && i < multiples.length - 1) {
@@ -232,14 +272,21 @@ export default function InfiniteTimeline({ submissions = [], height = '70vh' }) 
       stepMs = baseMs * multiples[i];
     }
 
+    // Prefer 1-hour ticks when they are sufficiently spaced
+    if (baseUnit === 'hour' && pxPerHour >= minPxPerTick) {
+      stepMs = hour;
+    }
+
     const fmt = (d) => {
+      if (baseUnit === 'millennium') return `${Math.floor(d.getUTCFullYear() / 1000) * 1000}`;
+      if (baseUnit === 'hour') return d.toLocaleTimeString('en-US', { hour: '2-digit' });
       if (baseUnit === 'day') return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
       if (baseUnit === 'month') return d.toLocaleString('en-US', { month: 'short', year: 'numeric' });
       return d.getUTCFullYear();
     };
 
     return { unit: baseUnit, stepMs, fmt };
-  }, [msPerPx, scale]);
+  }, [msPerPx]);
 
   // Layout-based measurement (track DPR + width) using effect (avoids SSR warnings)
   useEffect(() => {
@@ -268,12 +315,7 @@ export default function InfiniteTimeline({ submissions = [], height = '70vh' }) 
       const worldBefore = xToTime(mouseX, width);
 
       const zoomFactor = e.deltaY < 0 ? 1.05 : 0.95;
-      // Limit how far we can zoom out by ensuring the visible span is not more than
-      // a multiple of the domain span. When width ≈ 1200px and factor=2.5, minScale≈0.4-0.5.
-      const VISIBLE_DOMAIN_MULT = 1.25; // stricter cap to avoid blank/blue area
-      const approxPx = 1200;
-      const minScaleBySpan = Math.max(0.7, (width / (approxPx * VISIBLE_DOMAIN_MULT)));
-      const nextScale = Math.min(200, Math.max(minScaleBySpan, scale * zoomFactor));
+      const nextScale = Math.max(getMinScale(width), Math.min(getMaxScale(width), scale * zoomFactor));
       const nextMsPerPx = baseMsPerPx / nextScale;
 
       // Adjust pan to keep mouse anchor at same world time
@@ -286,13 +328,31 @@ export default function InfiniteTimeline({ submissions = [], height = '70vh' }) 
     const onPointerDown = (e) => {
       dragging || setDragging(true);
       dragStartRef.current = { x: e.clientX, panAtStart: panX };
+      movedRef.current = false;
+      pointerDownOnCanvasRef.current = true;
     };
     const onPointerMove = (e) => {
       if (!dragging) return;
       const dx = e.clientX - dragStartRef.current.x;
       setPanX(dragStartRef.current.panAtStart + dx);
+      if (Math.abs(dx) > 4) {
+        movedRef.current = true;
+        // Close any open tool while the timeline is being moved
+        setTool(null);
+      }
     };
-    const onPointerUp = () => setDragging(false);
+    const onPointerUp = (e) => {
+      setDragging(false);
+      if (!canEdit) return;
+      if (!pointerDownOnCanvasRef.current) return; // only open when click originated on canvas
+      if (movedRef.current) return; // do not open when timeline was moved
+      const rect = canvas.getBoundingClientRect();
+      const cx = e.clientX - rect.left;
+      const cy = Math.round(rect.height / 2);
+      // open tool near click projected to baseline
+      setTool({ id: Date.now(), x: cx, y: cy, ts: xToTime(cx, rect.width) });
+      pointerDownOnCanvasRef.current = false;
+    };
 
     canvas.addEventListener('wheel', onWheel, { passive: false });
     canvas.addEventListener('pointerdown', onPointerDown);
@@ -305,7 +365,7 @@ export default function InfiniteTimeline({ submissions = [], height = '70vh' }) 
       window.removeEventListener('pointermove', onPointerMove);
       window.removeEventListener('pointerup', onPointerUp);
     };
-  }, [baseMsPerPx, domain.max, domain.min, dragging, panX, scale, xToTime]);
+  }, [baseMsPerPx, domain.max, domain.min, dragging, panX, scale, xToTime, canEdit]);
 
   // Auto-center and auto-zoom once when data and container are ready
   useEffect(() => {
@@ -315,7 +375,7 @@ export default function InfiniteTimeline({ submissions = [], height = '70vh' }) 
     if (width === 0) return;
     const span = Math.max(1, domain.max - domain.min);
     const targetMsPerPx = span / (width * 0.7); // fit 70% of width
-    const targetScale = Math.min(50, Math.max(0.1, baseMsPerPx / targetMsPerPx));
+    const targetScale = Math.min(getMaxScale(width), Math.max(getMinScale(width), baseMsPerPx / targetMsPerPx));
     setScale(targetScale);
     setPanX(0);
     autoFramedRef.current = true;
@@ -372,7 +432,13 @@ export default function InfiniteTimeline({ submissions = [], height = '70vh' }) 
     // Ticks
     const step = tickSpec.stepMs;
     const tStart = xToTime(0, width);
-    const first = Math.floor(tStart / step) * step;
+    let first = Math.floor(tStart / step) * step;
+    if (tickSpec.unit === 'hour') {
+      // Align to exact hour boundary in local time
+      const d = new Date(first);
+      d.setMinutes(0, 0, 0);
+      first = d.getTime();
+    }
     ctx.fillStyle = '#2c5f6f';
     ctx.strokeStyle = 'rgba(30,58,95,0.45)';
     ctx.textAlign = 'center';
@@ -449,7 +515,16 @@ export default function InfiniteTimeline({ submissions = [], height = '70vh' }) 
     for (let t = first; t < xToTime(width, width) + step; t += step) {
       const x = timeToX(t, width);
       // Year markers as circles on the baseline; keep line ticks for finer units
-      if (tickSpec.unit === 'year') {
+      if (tickSpec.unit === 'millennium') {
+        // Millennium nodes as larger circles
+        ctx.save();
+        const radius = 10;
+        ctx.fillStyle = '#1e3a5f';
+        ctx.beginPath();
+        ctx.arc(x, midY, radius, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+      } else if (tickSpec.unit === 'year') {
         ctx.save();
         const radius = 9; // larger year node
         ctx.fillStyle = '#1e3a5f'; // solid node without border
@@ -466,13 +541,22 @@ export default function InfiniteTimeline({ submissions = [], height = '70vh' }) 
         ctx.arc(x, midY, mr, 0, Math.PI * 2);
         ctx.fill();
         ctx.restore();
-      } else {
-        // Finer units (day) keep short tick lines
+      } else if (tickSpec.unit === 'day') {
+        // Day ticks: short lines
         ctx.save();
         ctx.strokeStyle = 'rgba(30,58,95,0.35)';
         ctx.beginPath();
         ctx.moveTo(x, midY - 10);
         ctx.lineTo(x, midY + 10);
+        ctx.stroke();
+        ctx.restore();
+      } else {
+        // Hour ticks: smaller lines
+        ctx.save();
+        ctx.strokeStyle = 'rgba(30,58,95,0.28)';
+        ctx.beginPath();
+        ctx.moveTo(x, midY - 8);
+        ctx.lineTo(x, midY + 8);
         ctx.stroke();
         ctx.restore();
       }
@@ -481,15 +565,17 @@ export default function InfiniteTimeline({ submissions = [], height = '70vh' }) 
       const text = String(label);
       const padX = 6;
       const padY = 3;
-      // Larger font for year labels
+      // Larger font for year labels; smaller for hours; largest for millennia
+      const isMillennium = tickSpec.unit === 'millennium';
       const isYear = tickSpec.unit === 'year';
+      const isHour = tickSpec.unit === 'hour';
       ctx.save();
-      ctx.font = `${isYear ? '600 ' : ''}${isYear ? 14 : 12}px ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto`;
+      ctx.font = `${(isMillennium || isYear) ? '600 ' : ''}${isMillennium ? 16 : (isYear ? 14 : (isHour ? 11 : 12))}px ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto`;
       const metrics = ctx.measureText(text);
       const tw = Math.ceil(metrics.width);
-      const th = isYear ? 20 : 16;
+      const th = isMillennium ? 22 : (isYear ? 20 : (isHour ? 14 : 16));
       const rx = x - (tw / 2) - padX;
-      const ry = midY + 18;
+      const ry = midY + (isHour ? 14 : 18);
       // label background
       ctx.fillStyle = 'rgba(250,246,240,0.85)';
       drawRoundedRect(ctx, rx, ry, tw + padX * 2, th, 6);
@@ -628,6 +714,9 @@ export default function InfiniteTimeline({ submissions = [], height = '70vh' }) 
     <div className="w-full relative">
       <div ref={containerRef} className="relative w-full" style={{ height }}>
         <canvas ref={canvasRef} className="w-full h-full rounded-lg shadow-sm bg-[#faf6f0]" />
+        {canEdit && tool && (
+          <RadialTool key={tool.id} x={tool.x} y={tool.y} />
+        )}
         {/* Hover tooltip (uses cluster detection above) */}
         {/* Always-visible connectors and cards (one per bucket) */}
         {layoutCards.map((lc, idx) => {
@@ -733,11 +822,78 @@ export default function InfiniteTimeline({ submissions = [], height = '70vh' }) 
         );})}
       </div>
       {/* Controls bottom-right */}
-      <div className="absolute right-4 bottom-4 flex items-center gap-3 bg-white/70 backdrop-blur-sm border border-[#e3c292]/60 rounded-full shadow-md px-3 py-2">
+      <div className="absolute right-4 bottom-4 z-20 flex items-center gap-3 bg-white/70 backdrop-blur-sm border border-[#e3c292]/60 rounded-full shadow-md px-3 py-2" style={{ right: '24px', bottom: 'calc(env(safe-area-inset-bottom, 0px) + 56px)' }}>
         <div className="text-xs text-[#2c5f6f] hidden sm:block">Scale {scale.toFixed(2)}</div>
-        <button className="prophecy-button-sm px-4 py-2 rounded-full text-sm" onClick={() => setScale((s) => Math.min(200, s * 1.2))}>Zoom In</button>
-        <button className="prophecy-button-sm px-4 py-2 rounded-full text-sm" onClick={() => setScale((s) => Math.max(0.1, s / 1.2))}>Zoom Out</button>
+        <button className="prophecy-button-sm px-4 py-2 rounded-full text-sm" onClick={() => setScale((s) => Math.min(getMaxScale(), s * 1.2))}>Zoom In</button>
+        <button className="prophecy-button-sm px-4 py-2 rounded-full text-sm" onClick={() => setScale((s) => Math.max(MIN_SCALE, s / 1.2))}>Zoom Out</button>
         <button className="prophecy-button-sm px-4 py-2 rounded-full text-sm" onClick={() => { setScale(1); setPanX(0); }}>Reset</button>
+      </div>
+    </div>
+  );
+}
+
+function RadialTool({ x, y }) {
+  const items = [
+    { key: 'event', icon: '📍', label: 'Event' },
+    { key: 'period', icon: '⏳', label: 'Time Period' },
+    { key: 'percentage', icon: '📊', label: 'Percentage' },
+    { key: 'stats', icon: '📈', label: 'Statistics' },
+    { key: 'data', icon: '🧩', label: 'Data' },
+    { key: 'api', icon: '🔌', label: 'API' },
+    { key: 'group', icon: '🗂️', label: 'Grouping' },
+    { key: 'multi', icon: '📉', label: 'MultiStatistics' },
+    { key: 'import', icon: '🔗', label: 'Import Google' },
+  ];
+  const radius = 96;
+  const centerY = `${y}px`;
+
+  const [open, setOpen] = useState(false);
+  useEffect(() => {
+    const id = requestAnimationFrame(() => setOpen(true));
+    return () => cancelAnimationFrame(id);
+  }, []);
+
+  return (
+    <div className="absolute z-30 select-none" style={{ left: x, top: centerY, transform: 'translate(-50%, -50%)' }}>
+      <div className="relative" style={{ width: 0, height: 0 }}>
+        {/* Central circle */}
+        <div
+          className="absolute -left-7 -top-7 w-14 h-14 rounded-full bg-white/95 border border-[#e3c292]/60 shadow-xl flex items-center justify-center text-[#1e3a5f] font-semibold"
+          style={{ transform: `translate(-2px, 4px) scale(${open ? 1 : 0.6})`, opacity: open ? 1 : 0, transition: 'transform .18s ease-out, opacity .18s ease-out', willChange: 'transform, opacity' }}
+        >
+          +
+        </div>
+        {/* Orbiting items with opening animation and stagger */}
+        {items.map((it, idx) => {
+          const angle = (idx / items.length) * Math.PI * 2 - Math.PI / 2; // start at top
+          const ox = Math.cos(angle) * radius;
+          const oy = Math.sin(angle) * radius;
+          const sizeHalf = 20; // half of 40px (w-10 h-10)
+          const target = `translate(${ox - sizeHalf}px, ${oy - sizeHalf}px)`;
+          const delay = 30 + idx * 12; // ms stagger
+          return (
+            <div
+              key={it.key}
+              className="absolute"
+              style={{
+                transform: open ? target : `translate(${-sizeHalf}px, ${-sizeHalf}px)`,
+                transition: `transform .25s cubic-bezier(.2,.8,.2,1) ${delay}ms, opacity .2s ease-out ${delay}ms`,
+                opacity: open ? 1 : 0,
+                willChange: 'transform, opacity'
+              }}
+            >
+              <div className="group relative">
+                <button className="w-10 h-10 rounded-full bg-white/95 border border-[#e3c292]/60 shadow-md hover:shadow-xl flex items-center justify-center text-base transition-transform duration-150 hover:scale-110">
+                  <span>{it.icon}</span>
+                </button>
+                {/* Tooltip above the icon */}
+                <div className="pointer-events-none absolute left-1/2 -translate-x-1/2 -top-8 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <div className="bg-[#1e3a5f] text-white text-[10px] px-2 py-1 rounded shadow whitespace-nowrap">{it.label}</div>
+                </div>
+              </div>
+            </div>
+          );
+        })}
       </div>
     </div>
   );

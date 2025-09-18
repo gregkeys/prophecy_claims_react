@@ -7,6 +7,9 @@ export default function Dashboard() {
   const [session, setSession] = useState(null);
   const [timelines, setTimelines] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [creating, setCreating] = useState(false);
+  const [createForm, setCreateForm] = useState({ name: '', description: '', visibility: 'private' });
+  const [creatingStatus, setCreatingStatus] = useState('');
 
   useEffect(() => {
     const init = async () => {
@@ -29,6 +32,35 @@ export default function Dashboard() {
     return () => sub?.subscription?.unsubscribe();
   }, []);
 
+  const handleCreate = async (e) => {
+    e?.preventDefault?.();
+    if (!supabase || !session) return;
+    setCreatingStatus('');
+    if (!createForm.name.trim()) {
+      setCreatingStatus('Name is required');
+      return;
+    }
+    try {
+      const userId = session.user.id;
+      const { data, error } = await supabase
+        .from('timelines')
+        .insert({
+          user_id: userId,
+          name: createForm.name.trim(),
+          description: createForm.description.trim() || null,
+          visibility: createForm.visibility
+        })
+        .select('*')
+        .single();
+      if (error) throw error;
+      setTimelines((prev) => [data, ...prev]);
+      setCreating(false);
+      setCreateForm({ name: '', description: '', visibility: 'private' });
+    } catch (err) {
+      setCreatingStatus(err?.message || 'Failed to create timeline');
+    }
+  };
+
   if (!supabase) return <div className="p-6">Supabase is not configured</div>;
   if (!session) return (
     <div className="min-h-screen flex items-center justify-center bg-[#faf6f0] p-6">
@@ -46,8 +78,9 @@ export default function Dashboard() {
       </Head>
       <div className="min-h-screen bg-[#faf6f0] p-6">
         <div className="max-w-5xl mx-auto">
-          <div className="flex items-center mb-6">
+          <div className="flex items-center justify-between mb-6">
             <h1 className="text-2xl font-bold text-[#1e3a5f]">Your Timelines</h1>
+            <button onClick={() => setCreating(true)} className="prophecy-button-sm px-4 py-2">New Timeline</button>
           </div>
           {loading ? (
             <div>Loading…</div>
@@ -72,6 +105,40 @@ export default function Dashboard() {
           )}
         </div>
       </div>
+
+      {creating && (
+        <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-[#faf6f0] w-full max-w-lg rounded-2xl border border-[#e3c292]/60 shadow-2xl">
+            <div className="px-5 py-4 border-b border-[#e3c292]/40 flex items-center justify-between">
+              <h2 className="text-[#1e3a5f] font-semibold">Create New Timeline</h2>
+              <button onClick={() => setCreating(false)} className="text-[#2c5f6f] text-xl leading-none">×</button>
+            </div>
+            <form onSubmit={handleCreate} className="p-5 space-y-4">
+              <div>
+                <label className="block text-xs text-[#2c5f6f] mb-1">Name</label>
+                <input value={createForm.name} onChange={(e) => setCreateForm((f) => ({ ...f, name: e.target.value }))} className="w-full border rounded px-3 py-2" placeholder="My Prophetic Timeline" />
+              </div>
+              <div>
+                <label className="block text-xs text-[#2c5f6f] mb-1">Description</label>
+                <textarea value={createForm.description} onChange={(e) => setCreateForm((f) => ({ ...f, description: e.target.value }))} rows={3} className="w-full border rounded px-3 py-2" placeholder="Optional description" />
+              </div>
+              <div>
+                <label className="block text-xs text-[#2c5f6f] mb-1">Visibility</label>
+                <select value={createForm.visibility} onChange={(e) => setCreateForm((f) => ({ ...f, visibility: e.target.value }))} className="w-full border rounded px-3 py-2">
+                  <option value="private">Private</option>
+                  <option value="public">Public</option>
+                  <option value="groups">Groups</option>
+                </select>
+              </div>
+              {creatingStatus && <div className="text-sm text-red-600">{creatingStatus}</div>}
+              <div className="flex items-center justify-end gap-2">
+                <button type="button" onClick={() => setCreating(false)} className="bg-white border border-[#1e3a5f] text-[#1e3a5f] rounded-full px-4 py-2">Cancel</button>
+                <button type="submit" className="prophecy-button px-5 py-2">Create</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </>
   );
 }

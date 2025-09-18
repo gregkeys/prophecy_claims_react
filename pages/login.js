@@ -17,9 +17,10 @@ export default function LoginPage() {
     ? window.location.origin
     : (process.env.NEXT_PUBLIC_SITE_URL || '');
 
-  // Force explicit, on-site callback targets to avoid Supabase defaulting to its own domain
-  // We always return to the Login page which handles the session and then navigates
-  const redirectTo = siteOrigin ? `${siteOrigin}/login` : undefined;
+  // Force explicit, on-site callback target to avoid Supabase defaulting to its own domain
+  // Use the auth callback path so Supabase JS can process the session reliably
+  const callbackPath = process.env.NEXT_PUBLIC_AUTH_CALLBACK_PATH || '/auth/v1/callback';
+  const redirectTo = siteOrigin ? `${siteOrigin}${callbackPath}` : undefined;
   const resetRedirectTo = siteOrigin ? `${siteOrigin}/reset-password` : undefined;
 
   const handleEmailPassword = async (e) => {

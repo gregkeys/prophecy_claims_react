@@ -39,60 +39,69 @@ export default function InfiniteTimeline({ submissions = [], height = '70vh', ca
       return Number.isFinite(parsed) ? parsed : null;
     };
 
-    const parseEventStyle = (contents) => {
-      if (!contents) return null;
-      const styleItem = (contents || []).find((c) => (c?.type || '').toLowerCase() === 'timeline_style');
-      if (!styleItem) return null;
-      // Parse strictly from metadata jsonb
-      const raw = styleItem.metadata;
+    const normalizeStyleFromRoot = (root) => {
+      if (!root) return null;
+      const src = root?.timeline_style ? root.timeline_style : root;
+
+      const toPos = (v) => {
+        const val = (v || '').toString().toLowerCase();
+        if (['on', 'center', 'on_line'].includes(val)) return 'on';
+        if (['above', 'above_line'].includes(val)) return 'above';
+        if (['below', 'below_line'].includes(val)) return 'below';
+        return 'above';
+      };
+
+      const toItemStyle = (v) => {
+        const val = (v || '').toString().toLowerCase();
+        if (['marker + text','marker_text','marker+text'].includes(val)) return 'marker_text';
+        if (['chat bubble','chat_bubble'].includes(val)) return 'chat_bubble';
+        if (['chat square','chat_square'].includes(val)) return 'chat_square';
+        if (['marker'].includes(val)) return 'marker';
+        if (['text'].includes(val)) return 'text';
+        if (['circle'].includes(val)) return 'circle';
+        if (['card'].includes(val)) return 'card';
+        // Back-compat: map old outline styles to nearest
+        if (['subtle','bold','none','outline'].includes(val)) return 'marker';
+        return 'card';
+      };
+
+      const toBorderStyle = (v) => {
+        const val = (v || '').toString().toLowerCase();
+        if (['none','solid','dashed','dotted','drop shadow','drop_shadow','glow'].includes(val)) return val;
+        return 'solid';
+      };
+
+      return {
+        colors: {
+          background: src?.colors?.background || null,
+          border: src?.colors?.border || null,
+          text: src?.colors?.text || null,
+        },
+        textLayout: src?.textLayout || src?.text_layout || 'left',
+        design: {
+          itemStyle: toItemStyle(src?.design?.itemStyle || src?.design?.style || src?.design?.outlineStyle || src?.design?.outline_style),
+          linePosition: (src?.design?.linePosition || src?.design?.line_position || 'center').toString().toLowerCase(), // left|center|right
+          borderStyle: toBorderStyle(src?.design?.borderStyle || src?.design?.border_style),
+        },
+        timelinePosition: toPos(src?.timelinePosition || src?.timeline_position),
+      };
+    };
+
+    const parseSubmissionStyle = (submission) => {
+      if (!submission) return null;
+      // 1) Preferred: enhanced_submissions.metadata.style
+      const metaRoot = submission?.metadata;
+      const metaRaw = metaRoot && (metaRoot.style || metaRoot.timeline_style || metaRoot);
+      const fromMeta = normalizeStyleFromRoot(metaRaw);
+      if (fromMeta) return fromMeta;
+      // 2) Legacy: submission_content type = timeline_style
+      const contents = submission?.submission_content || [];
+      const styleItem = contents.find((c) => (c?.type || '').toLowerCase() === 'timeline_style');
+      const raw = styleItem?.metadata;
       if (!raw) return null;
       try {
         const root = typeof raw === 'string' ? JSON.parse(raw) : raw;
-        const src = root?.timeline_style ? root.timeline_style : root;
-
-        const toPos = (v) => {
-          const val = (v || '').toString().toLowerCase();
-          if (['on', 'center', 'on_line'].includes(val)) return 'on';
-          if (['above', 'above_line'].includes(val)) return 'above';
-          if (['below', 'below_line'].includes(val)) return 'below';
-          return 'above';
-        };
-
-        const toItemStyle = (v) => {
-          const val = (v || '').toString().toLowerCase();
-          if (['marker + text','marker_text','marker+text'].includes(val)) return 'marker_text';
-          if (['chat bubble','chat_bubble'].includes(val)) return 'chat_bubble';
-          if (['chat square','chat_square'].includes(val)) return 'chat_square';
-          if (['marker'].includes(val)) return 'marker';
-          if (['text'].includes(val)) return 'text';
-          if (['circle'].includes(val)) return 'circle';
-          if (['card'].includes(val)) return 'card';
-          // Back-compat: map old outline styles to nearest
-          if (['subtle','bold','none','outline'].includes(val)) return 'marker';
-          return 'card';
-        };
-
-        const toBorderStyle = (v) => {
-          const val = (v || '').toString().toLowerCase();
-          if (['none','solid','dashed','dotted','drop shadow','drop_shadow','glow'].includes(val)) return val;
-          return 'solid';
-        };
-
-        const normalize = {
-          colors: {
-            background: src?.colors?.background || null,
-            border: src?.colors?.border || null,
-            text: src?.colors?.text || null,
-          },
-          textLayout: src?.textLayout || src?.text_layout || 'left',
-          design: {
-            itemStyle: toItemStyle(src?.design?.style || src?.design?.outlineStyle || src?.design?.outline_style),
-            linePosition: (src?.design?.linePosition || src?.design?.line_position || 'center').toString().toLowerCase(), // left|center|right
-            borderStyle: toBorderStyle(src?.design?.borderStyle || src?.design?.border_style),
-          },
-          timelinePosition: toPos(src?.timelinePosition || src?.timeline_position),
-        };
-        return normalize;
+        return normalizeStyleFromRoot(root);
       } catch (e) {
         return null;
       }
@@ -104,7 +113,7 @@ export default function InfiniteTimeline({ submissions = [], height = '70vh', ca
         const subStatus = (s?.status || 'active').toString().toLowerCase();
         if (subStatus !== 'active') return null;
         const ts = parseTimeframe(s.submission_content) || Date.parse(s.created_at || '') || null;
-        const style = parseEventStyle(s.submission_content);
+        const style = parseSubmissionStyle(s);
         return ts
           ? {
               id: s.id,
@@ -942,6 +951,13 @@ export default function InfiniteTimeline({ submissions = [], height = '70vh', ca
             : lc.side === 'on'
               ? `calc(50% - 12px)`
               : `calc(50% - ${distAboveTop}px)`;
+          const bucketX = Math.max(2, Math.min(containerWidth - 2, Math.round(lc.bucket.x)));
+          const linePos = (lc.styleMeta?.design?.linePosition || 'center').toLowerCase();
+          const anchorOffset = linePos === 'left' ? 24 : linePos === 'right' ? 296 : 160;
+          const anchorAbsX = Math.max(2, Math.min(containerWidth - 2, Math.round(lc.left + anchorOffset)));
+          const hLeft = Math.min(bucketX, anchorAbsX);
+          const hWidth = Math.abs(bucketX - anchorAbsX);
+          const connectorTop = lc.side === 'below' ? `calc(50% + ${distBelowTop - insidePx}px)` : `calc(50% - ${distAboveTop - insidePx}px)`;
           return (
           <div key={`card-${idx}`} className="absolute left-0 top-0 w-full h-full pointer-events-none">
             {/* Stem connecting to baseline */}
@@ -949,7 +965,7 @@ export default function InfiniteTimeline({ submissions = [], height = '70vh', ca
               <div
                 className="absolute"
                 style={{
-                  left: `${Math.max(2, Math.min(containerWidth - 2, Math.round(lc.bucket.x))) - 1}px`,
+                  left: `${bucketX - 1}px`,
                   top: lc.side === 'below' ? '50%' : `calc(50% - ${stemHeight}px)`,
                   width: '0px',
                   height: `${stemHeight}px`,
@@ -958,35 +974,49 @@ export default function InfiniteTimeline({ submissions = [], height = '70vh', ca
                 }}
               />
             )}
-            {/* Premium/standard card container */}
+            {/* Horizontal connector from vertical stem to element anchor */}
+            {lc.side !== 'on' && hWidth > 1 && (
+              <div
+                className="absolute"
+                style={{
+                  left: `${hLeft}px`,
+                  top: connectorTop,
+                  width: `${hWidth}px`,
+                  height: '0px',
+                  borderTop: '2px solid #e89547',
+                  boxShadow: '0 0 8px rgba(232,149,71,0.6)'
+                }}
+              />
+            )}
+            {/* Premium/standard card container (outer wrapper; inner elements handle bg/border) */}
             <div
-              className="absolute p-3 text-xs pointer-events-auto"
+              className="absolute text-xs pointer-events-auto"
               style={{
                 left: `${Math.round(lc.left)}px`,
                 top: cardTop,
                 width: '320px',
-                backgroundColor: lc.styleMode === 'text' ? 'transparent' : 'rgba(255,255,255,0.95)',
-                borderColor: lc.styleMode === 'text' ? 'transparent' : '#e3c292',
-                borderWidth: lc.styleMode === 'text' ? 0 : 1,
-                borderStyle: lc.styleMode === 'text' ? 'none' : 'solid',
-                borderRadius: lc.styleMode === 'chat_square' ? '10px' : '12px',
-                boxShadow: lc.styleMeta?.design?.borderStyle === 'glow' ? `0 0 16px ${lc.styleMeta?.colors?.border || '#00000055'}` : lc.styleMeta?.design?.borderStyle === 'drop shadow' ? `0 6px 14px ${lc.styleMeta?.colors?.border || '#00000055'}` : '0 4px 10px rgba(0,0,0,0.08)'
+                backgroundColor: 'transparent',
+                borderColor: 'transparent',
+                borderWidth: 0,
+                borderStyle: 'none',
+                borderRadius: '12px',
+                boxShadow: 'none'
               }}
             >
               {/* Chat bubble tail */}
-              {lc.styleMode === 'chat_bubble' && (
+              {(lc.styleMode === 'chat_bubble' || lc.styleMode === 'chat_square') && (
                 <div
                   className="absolute"
                   style={{
-                    left: `${Math.max(6, Math.min(314, Math.round(lc.bucket.x - lc.left))) - 6}px`,
+                    left: `${Math.max(6, Math.min(314, Math.round(bucketX - lc.left))) - 6}px`,
                     bottom: lc.side === 'below' ? 'auto' : '-8px',
                     top: lc.side === 'below' ? '-8px' : 'auto',
                     width: 0,
                     height: 0,
                     borderLeft: '8px solid transparent',
                     borderRight: '8px solid transparent',
-                    borderTop: lc.side === 'below' ? '8px solid rgba(255,255,255,0.95)' : 'none',
-                    borderBottom: lc.side !== 'below' ? '8px solid rgba(255,255,255,0.95)' : 'none'
+                    borderTop: lc.side === 'below' ? `8px solid ${lc.styleMeta?.colors?.background || '#ffffff'}` : 'none',
+                    borderBottom: lc.side !== 'below' ? `8px solid ${lc.styleMeta?.colors?.background || '#ffffff'}` : 'none'
                   }}
                 />
               )}
@@ -1006,31 +1036,48 @@ export default function InfiniteTimeline({ submissions = [], height = '70vh', ca
                   const align = (style?.textLayout || 'left').toLowerCase();
                   const alignClass = align === 'center' ? 'text-center' : align === 'right' ? 'text-right' : 'text-left';
                   const itemStyle = (style?.design?.itemStyle || 'card').toLowerCase();
-                  const borderStyle = (style?.design?.borderStyle || 'solid').toLowerCase();
-                  const cardStyle = {
-                    backgroundColor: itemStyle === 'text' ? 'transparent' : (bgColor || 'transparent'),
-                    color: textColor,
-                    borderColor: borderColor || undefined,
-                    borderWidth: borderColor ? 1 : undefined,
-                    borderStyle: borderColor ? 'solid' : undefined,
-                    boxShadow: borderStyle === 'drop shadow' ? `0 6px 14px ${borderColor || '#00000055'}` : borderStyle === 'glow' ? `0 0 16px ${borderColor || '#00000055'}` : undefined
-                  };
+                  const borderStyleRaw = (style?.design?.borderStyle || 'solid').toString().toLowerCase().replace(/_/g, ' ');
+                  const cssBorderStyle = ['solid','dashed','dotted'].includes(borderStyleRaw) ? borderStyleRaw : (borderColor ? 'solid' : 'none');
+                  const boxShadow = borderStyleRaw === 'drop shadow' ? `0 6px 14px ${borderColor || '#00000055'}` : borderStyleRaw === 'glow' ? `0 0 16px ${borderColor || '#00000055'}` : undefined;
                   return (
-                    <div
-                      key={p.id}
-                      className={`flex items-start gap-3 ${alignClass} cursor-pointer hover:opacity-90`}
-                      style={{ color: textColor }}
-                      onClick={() => onOpenSubmission && onOpenSubmission(p.id)}
-                      role="button"
-                      tabIndex={0}
-                      onKeyDown={(e) => { if (e.key === 'Enter') onOpenSubmission && onOpenSubmission(p.id); }}
-                    >
-                      {imgUrl && <img src={imgUrl} alt="thumb" className="w-10 h-10 rounded-md object-cover border" style={{ borderColor: borderColor || '#e3c292' }} />}
-                      <div className="min-w-0 rounded-md p-1" style={cardStyle}>
-                        <div className="font-semibold truncate" style={{ color: textColor }}>{title}</div>
-                        {desc && <div className="truncate" style={{ color: subTextColor }}>{desc}</div>}
-                        <div className="text-[10px] mt-0.5" style={{ color: subTextColor }}>{dateStr}</div>
-                      </div>
+                    <div key={p.id} className={`cursor-pointer hover:opacity-90 ${alignClass}`} onClick={() => onOpenSubmission && onOpenSubmission(p.id)} role="button" tabIndex={0} onKeyDown={(e) => { if (e.key === 'Enter') onOpenSubmission && onOpenSubmission(p.id); }}>
+                      {itemStyle === 'marker' && (
+                        <div className="w-10 h-10 rounded-full border overflow-hidden mx-auto m-3" style={{ backgroundColor: bgColor || 'transparent', borderColor: borderColor || '#e3c292', borderStyle: cssBorderStyle, borderWidth: borderColor ? 2 : 1, boxShadow }}>
+                          {imgUrl && <img src={imgUrl} alt="marker" className="w-full h-full object-cover" />}
+                        </div>
+                      )}
+                      {itemStyle === 'circle' && (
+                        <div className="w-8 h-8 rounded-full border mx-auto m-3" style={{ backgroundColor: bgColor || 'transparent', borderColor: borderColor || '#e3c292', borderStyle: cssBorderStyle, borderWidth: borderColor ? 2 : 1, boxShadow }} />
+                      )}
+                      {itemStyle === 'text' && (
+                        <div className="inline-block m-3" style={{ color: textColor }}>
+                          <div className="font-semibold truncate">{title}</div>
+                        </div>
+                      )}
+                      {itemStyle === 'marker_text' && (
+                        <div className="inline-block px-2 py-1 rounded m-3" style={{ backgroundColor: bgColor || 'transparent', borderColor: borderColor || '#e3c292', borderStyle: cssBorderStyle, borderWidth: borderColor ? 2 : 1, color: textColor, boxShadow, boxSizing: 'border-box' }}>
+                          <div className="font-semibold truncate max-w-[280px]">{title}</div>
+                        </div>
+                      )}
+                      {(itemStyle === 'chat_bubble' || itemStyle === 'chat_square') && (
+                        <div className="inline-block px-3 py-2 m-3" style={{ backgroundColor: bgColor || 'rgba(255,255,255,0.95)', color: textColor, borderColor: borderColor || '#e3c292', borderStyle: cssBorderStyle, borderWidth: borderColor ? 2 : 1, borderRadius: itemStyle === 'chat_square' ? 10 : 9999, boxShadow, boxSizing: 'border-box' }}>
+                          <div className="font-semibold truncate max-w-[280px]">{title}</div>
+                          {desc && <div className="truncate max-w-[280px]" style={{ color: subTextColor }}>{desc}</div>}
+                          <div className="text-[10px] mt-0.5" style={{ color: subTextColor }}>{dateStr}</div>
+                        </div>
+                      )}
+                      {itemStyle === 'card' && (
+                        <div className="w-[296px] rounded-md p-2 m-3" style={{ backgroundColor: bgColor || 'rgba(255,255,255,0.95)', borderColor: borderColor || '#e3c292', borderStyle: cssBorderStyle, borderWidth: borderColor ? 2 : 1, color: textColor, boxShadow, boxSizing: 'border-box' }}>
+                          <div className="flex items-start gap-3">
+                            {imgUrl && <img src={imgUrl} alt="thumb" className="w-12 h-12 rounded object-cover" style={{ borderColor: borderColor || '#e3c292', borderStyle: cssBorderStyle, borderWidth: borderColor ? 2 : 1, boxSizing: 'border-box' }} />}
+                            <div className="min-w-0">
+                              <div className="font-semibold truncate">{title}</div>
+                              {desc && <div className="truncate" style={{ color: subTextColor }}>{desc}</div>}
+                              <div className="text-[10px] mt-0.5" style={{ color: subTextColor }}>{dateStr}</div>
+                            </div>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   );
                 })}

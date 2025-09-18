@@ -493,10 +493,16 @@ export default function DetailedTimeline({ timeline, submissions }) {
               {canEdit && (
                 <button
                   onClick={() => setIsEditing((v) => !v)}
-                  className={`px-3 py-1 rounded-full text-sm border transition-colors whitespace-nowrap ${isEditing ? 'bg-[#e3c292]/30 border-[#e3c292] text-[#1e3a5f]' : 'bg-white/70 border-[#e3c292]/60 text-[#1e3a5f]'}`}
-                  title="Toggle edit mode"
+                  aria-pressed={isEditing}
+                  className={`flex items-center gap-2 px-4 py-2 rounded-full text-sm font-semibold shadow-md transition-all whitespace-nowrap ring-2 ${
+                    isEditing
+                      ? 'bg-[#e89547] text-white ring-[#f4d03f] hover:brightness-105'
+                      : 'bg-white text-[#1e3a5f] ring-[#e3c292] hover:bg-[#fff6ee]'
+                  }`}
+                  title="Toggle Edit Mode"
                 >
-                  {isEditing ? 'Edit: On' : 'Edit: Off'}
+                  <span>{isEditing ? '✎' : '✎'}</span>
+                  <span>{isEditing ? 'Edit Mode: On' : 'Edit Mode: Off'}</span>
                 </button>
               )}
             </div>

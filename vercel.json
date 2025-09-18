@@ -4,6 +4,8 @@
   "framework": "nextjs",
   "regions": ["iad1"],
   "env": {
-    "NEXT_PUBLIC_SITE_URL": "https://prophecy.claims"
+    "NEXT_PUBLIC_SITE_URL": "https://prophecy.claims",
+    "NEXT_PUBLIC_AUTH_CALLBACK_PATH": "/auth/v1/callback",
+    "NEXT_PUBLIC_AUTH_ABSOLUTE_REDIRECT": ""
   }
 }

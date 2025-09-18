@@ -172,6 +172,7 @@ export default function InfiniteTimeline({ submissions = [], height = '70vh', ca
   const MONTH_SHORT = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
   const formatMonthYearUTC = (d) => `${MONTH_SHORT[d.getUTCMonth()]} ${d.getUTCFullYear()}`;
   const formatDayUTC = (d) => `${MONTH_SHORT[d.getUTCMonth()]} ${String(d.getUTCDate()).padStart(2, '0')}`;
+  const formatDayYearUTC = (d) => `${MONTH_SHORT[d.getUTCMonth()]} ${String(d.getUTCDate()).padStart(2, '0')}, ${d.getUTCFullYear()}`;
 
   const timeToX = useCallback(
     (ts, width) => {
@@ -272,13 +273,13 @@ export default function InfiniteTimeline({ submissions = [], height = '70vh', ca
       baseMs = 1000 * year;
     }
 
-    // Ensure ticks are not overly dense (allow denser ticks for hours)
+    // Ensure ticks are not overly dense. We also map to recognizable levels
     const pxPerHour = hour / msPerPx;
     const minPxPerTick = baseUnit === 'hour' ? 30 : 80;
     const multiples = baseUnit === 'millennium'
       ? [1]
       : baseUnit === 'year'
-      ? [1, 2, 5, 10, 20, 50]
+      ? [1, 2, 5, 10]
       : baseUnit === 'month'
         ? [1, 2, 3, 6, 12]
         : baseUnit === 'day'
@@ -308,8 +309,8 @@ export default function InfiniteTimeline({ submissions = [], height = '70vh', ca
 
     const fmt = (d) => {
       if (baseUnit === 'millennium') return `${Math.floor(d.getUTCFullYear() / 1000) * 1000}`;
-      if (baseUnit === 'hour') return d.toLocaleTimeString('en-US', { hour: '2-digit' });
-      if (baseUnit === 'day') return formatDayUTC(d);
+      if (baseUnit === 'hour') return d.toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit' });
+      if (baseUnit === 'day') return formatDayYearUTC(d);
       if (baseUnit === 'month') return formatMonthYearUTC(d);
       return d.getUTCFullYear();
     };
@@ -459,7 +460,7 @@ export default function InfiniteTimeline({ submissions = [], height = '70vh', ca
     };
 
     // Ticks
-    const step = tickSpec.stepMs;
+    let step = tickSpec.stepMs;
     const tStart = xToTime(0, width);
     let first = Math.floor(tStart / step) * step;
     if (tickSpec.unit === 'hour') {
@@ -467,12 +468,82 @@ export default function InfiniteTimeline({ submissions = [], height = '70vh', ca
       const d = new Date(first);
       d.setMinutes(0, 0, 0);
       first = d.getTime();
+    } else if (tickSpec.unit === 'day') {
+      // Align to UTC midnight boundaries
+      const d = new Date(first);
+      first = Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate());
+    } else if (tickSpec.unit === 'month') {
+      // Align to UTC month boundaries
+      const d = new Date(tStart);
+      first = Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), 1);
     }
     ctx.fillStyle = '#2c5f6f';
     ctx.strokeStyle = 'rgba(30,58,95,0.45)';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'top';
     ctx.font = '12px ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto';
+
+    // Helper to draw coarse year ticks/labels (fallback so something is always visible)
+    const drawYearTicks = () => {
+      const tEnd = xToTime(width, width);
+      const startDate = new Date(tStart);
+      const endDate = new Date(tEnd);
+      const yearMs = 365 * 24 * 60 * 60 * 1000;
+      // Choose integer step close to ~12 ticks with readable spacing (allowed, symmetric steps)
+      const spanYears = Math.max(1, (tEnd - tStart) / yearMs);
+      const desiredTicks = 12;
+      const rawStep = spanYears / desiredTicks;
+      const allowedSteps = [1, 2, 5, 10, 20, 25, 50, 100, 200, 250, 500, 1000, 2000, 5000];
+      // pick the smallest allowed >= rawStep
+      let stepYears = allowedSteps.find((s) => s >= rawStep) || allowedSteps[allowedSteps.length - 1];
+      // Clamp by pixel spacing (if too tight, move up to next; if too loose, try previous)
+      const minPx = 90; // min pixel spacing between year labels
+      const maxPx = 200; // max before we increase density
+      const idxOf = (val) => allowedSteps.indexOf(val);
+      let idx = idxOf(stepYears);
+      let spacingPx = (stepYears * yearMs) / msPerPx;
+      while (spacingPx < minPx && idx < allowedSteps.length - 1) {
+        idx += 1;
+        stepYears = allowedSteps[idx];
+        spacingPx = (stepYears * yearMs) / msPerPx;
+      }
+      while (spacingPx > maxPx && idx > 0) {
+        idx -= 1;
+        stepYears = allowedSteps[idx];
+        spacingPx = (stepYears * yearMs) / msPerPx;
+      }
+
+      // Align to the nearest step multiple
+      const startYear = startDate.getUTCFullYear();
+      const endYear = endDate.getUTCFullYear() + 1;
+      const firstAlignedYear = Math.floor(startYear / stepYears) * stepYears;
+      for (let y = firstAlignedYear; y <= endYear; y += stepYears) {
+        const yInt = Math.round(y);
+        const ts = Date.UTC(yInt, 0, 1);
+        const x = timeToX(ts, width);
+        // node
+        ctx.save();
+        ctx.fillStyle = '#1e3a5f';
+        ctx.beginPath();
+        ctx.arc(x, midY, 9, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+        // label
+        const yearText = String(yInt);
+        const padX = 6, padY = 3;
+        ctx.save();
+        ctx.font = '600 14px ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto';
+        const tw = Math.ceil(ctx.measureText(yearText).width);
+        const rx = x - (tw / 2) - padX;
+        const ry = midY + 18;
+        ctx.fillStyle = 'rgba(250,246,240,0.85)';
+        drawRoundedRect(ctx, rx, ry, tw + padX * 2, 20, 6);
+        ctx.fill();
+        ctx.fillStyle = '#1e3a5f';
+        ctx.fillText(yearText, x, ry + padY);
+        ctx.restore();
+      }
+    };
 
     // Month bracket only when <= ~12 months visible (regardless of tick unit)
     {
@@ -487,7 +558,8 @@ export default function InfiniteTimeline({ submissions = [], height = '70vh', ca
         (ed.getUTCFullYear() - sd.getUTCFullYear()) * 12 + (ed.getUTCMonth() - sd.getUTCMonth()) + 1
       );
       const monthsVisible = Math.min(approxMonthsVisible, monthsAccurate);
-      const showBrackets = monthsVisible <= 12.5;
+      // Show month brackets much earlier (up to ~7 years ≈ 84 months)
+      const showBrackets = monthsVisible <= 84.5;
       if (showBrackets) {
       const startDate = new Date(tStart);
       // Use UTC to avoid DST/timezone drift and start from the month that contains tStart
@@ -495,7 +567,8 @@ export default function InfiniteTimeline({ submissions = [], height = '70vh', ca
 
       const yBase = midY - 18; // slightly higher above the thick baseline
       const bracketHeight = 10;
-      const minSpanPx = 20;
+      // Allow brackets to render even when months are narrow
+      const minSpanPx = 8;
       const insetPx = 0; // no extra inset to keep gap precise
       // Scale the inter-month gap by the visual month width, not raw scale
       const maxTotalGapPx = 120; // at high zoom (wide months)
@@ -503,7 +576,7 @@ export default function InfiniteTimeline({ submissions = [], height = '70vh', ca
       const minTotalGapPx = 4;   // at far zoom-out (narrow months)
       const minShiftRightPx = 2;
       const monthWidthPx = monthMsLocal / msPerPx;
-      const visibleMinMonthPx = 80;  // close to tick density threshold for months
+      const visibleMinMonthPx = 16;  // allow months to appear earlier
       const visibleMaxMonthPx = 600; // beyond this we consider fully zoomed for months
       const z = Math.max(0, Math.min(1, (monthWidthPx - visibleMinMonthPx) / (visibleMaxMonthPx - visibleMinMonthPx)));
       const totalGapPx = minTotalGapPx + z * (maxTotalGapPx - minTotalGapPx);
@@ -517,16 +590,19 @@ export default function InfiniteTimeline({ submissions = [], height = '70vh', ca
       ctx.strokeStyle = '#c37a45';
       ctx.lineWidth = 2;
       ctx.lineCap = 'round';
+      // Decide labeling cadence based on month pixel width: 6 -> 3 -> 1
+      const labelMinPx = 70;
+      let monthStep = 12;
+      if (monthWidthPx * 1 >= labelMinPx) monthStep = 1;
+      else if (monthWidthPx * 3 >= labelMinPx) monthStep = 3;
+      else if (monthWidthPx * 6 >= labelMinPx) monthStep = 6;
+      else monthStep = 12;
       for (let d = new Date(monthStart); d.getTime() <= tEnd; d.setUTCMonth(d.getUTCMonth() + 1)) {
-        const startMs = d.getTime();
-        const endMs = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 1, 1)).getTime();
-        // Create a small pixel gap centered on the month boundary and align near day ticks
-        // Right bracket (start of the current month) sits to the right creating a 120px gap centered 60px to the right of the boundary
-        const adjStartMs = startMs + rightStartOffsetMs;
-        // Left bracket (end of the current month) ends just left of the next month's tick for a crisp boundary
-        const adjEndMs = endMs - leftEpsilonMs;
-        const sx = timeToX(adjStartMs, width);
-        const ex = timeToX(adjEndMs, width);
+        const startMs = Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), 1);
+        const lastDayMs = Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 1, 0);
+        // Align bracket corners directly above the first and last days of the month
+        const sx = timeToX(startMs, width);
+        const ex = timeToX(lastDayMs, width);
         const left = Math.max(0, sx);
         const right = Math.min(width, ex);
         const innerLeft = left + insetPx;
@@ -547,16 +623,110 @@ export default function InfiniteTimeline({ submissions = [], height = '70vh', ca
         // down-right corner
         ctx.quadraticCurveTo(innerRight, topY, innerRight, yBase);
         ctx.stroke();
+
+        // Month name centered above the bracket
+        const monthIndex = d.getUTCFullYear() * 12 + d.getUTCMonth();
+        if (monthIndex % monthStep === 0) {
+          ctx.save();
+          ctx.fillStyle = '#1e3a5f';
+          ctx.font = '600 12px ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'bottom';
+          const cx = (innerLeft + innerRight) / 2;
+          const monthName = MONTH_SHORT[d.getUTCMonth()];
+          ctx.fillText(monthName, cx, topY - 6);
+          ctx.restore();
+        }
       }
       ctx.restore();
+
+      // Year labels when viewing months: show at January
+      ctx.save();
+      ctx.fillStyle = '#1e3a5f';
+      ctx.font = '600 14px ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto';
+      for (let d = new Date(monthStart); d.getTime() <= tEnd; d.setUTCMonth(d.getUTCMonth() + 1)) {
+        if (d.getUTCMonth() === 0) {
+          const x = timeToX(d.getTime(), width);
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'top';
+          ctx.fillText(String(d.getUTCFullYear()), x, midY + 22);
+        }
+      }
+      ctx.restore();
+
+      // Day markers with progressive increments: 10 → 5 → 2 → 1
+      const dayPx = dayMsLocal / msPerPx;
+      const minDayLabelPx = 50;
+      let dayMode = 0; // 0=none, 10,5,2,1
+      if (dayPx * 1 >= minDayLabelPx) dayMode = 1;
+      else if (dayPx * 2 >= minDayLabelPx) dayMode = 2;
+      else if (dayPx * 5 >= minDayLabelPx) dayMode = 5;
+      else if (dayPx * 10 >= minDayLabelPx) dayMode = 10;
+
+      if (dayMode) {
+        for (let d = new Date(monthStart); d.getTime() <= tEnd; d.setUTCMonth(d.getUTCMonth() + 1)) {
+          const year = d.getUTCFullYear();
+          const month = d.getUTCMonth();
+          const daysInMonth = new Date(Date.UTC(year, month + 1, 0)).getUTCDate();
+          const drawTick = (ts, label, opts = {}) => {
+            const x = timeToX(ts, width);
+            // baseline tick
+            ctx.save();
+            ctx.strokeStyle = 'rgba(30,58,95,0.35)';
+            ctx.beginPath();
+            const h = opts.small ? 6 : 8;
+            ctx.moveTo(x, midY - h);
+            ctx.lineTo(x, midY + h);
+            ctx.stroke();
+            ctx.restore();
+
+            if (label) {
+              ctx.save();
+              ctx.textAlign = 'center';
+              ctx.textBaseline = 'top';
+              if (opts.emph) {
+                ctx.fillStyle = '#1e3a5f';
+                ctx.font = '600 12px ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto';
+              } else {
+                ctx.fillStyle = '#4b5563';
+                ctx.font = '10px ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto';
+              }
+              ctx.fillText(label, x, midY + 10);
+              ctx.restore();
+            }
+          };
+
+          if (dayMode === 10) {
+            const labels = [1, 10, 20, 30];
+            labels.forEach((day) => {
+              if (day <= daysInMonth) drawTick(Date.UTC(year, month, day), String(day), { emph: true });
+            });
+          } else if (dayMode === 5) {
+            for (let day = 1; day <= daysInMonth; day++) {
+              if (day === 1 || day % 5 === 0) {
+                drawTick(Date.UTC(year, month, day), String(day), { emph: true });
+              }
+            }
+          } else if (dayMode === 2) {
+            for (let day = 1; day <= daysInMonth; day++) {
+              if (day === 1 || day % 2 === 1) {
+                drawTick(Date.UTC(year, month, day), String(day));
+              }
+            }
+          } else if (dayMode === 1) {
+            for (let day = 1; day <= daysInMonth; day++) {
+              const emph = (day === 1 || day % 5 === 0);
+              drawTick(Date.UTC(year, month, day), emph ? String(day) : String(day), { emph: emph, small: !emph });
+            }
+          }
+        }
+      }
       }
     }
 
     for (let t = first; t < xToTime(width, width) + step; t += step) {
       const x = timeToX(t, width);
-      // Year markers as circles on the baseline; keep line ticks for finer units
       if (tickSpec.unit === 'millennium') {
-        // Millennium nodes as larger circles
         ctx.save();
         const radius = 10;
         ctx.fillStyle = '#1e3a5f';
@@ -564,68 +734,33 @@ export default function InfiniteTimeline({ submissions = [], height = '70vh', ca
         ctx.arc(x, midY, radius, 0, Math.PI * 2);
         ctx.fill();
         ctx.restore();
-      } else if (tickSpec.unit === 'year') {
+        const label = tickSpec.fmt(new Date(t));
+        const text = String(label);
+        const padX = 6, padY = 3;
         ctx.save();
-        const radius = 9; // larger year node
-        ctx.fillStyle = '#1e3a5f'; // solid node without border
-        ctx.beginPath();
-        ctx.arc(x, midY, radius, 0, Math.PI * 2);
+        ctx.font = '600 16px ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto';
+        const metrics = ctx.measureText(text);
+        const tw = Math.ceil(metrics.width);
+        const rx = x - (tw / 2) - padX;
+        const ry = midY + 18;
+        ctx.fillStyle = 'rgba(250,246,240,0.85)';
+        drawRoundedRect(ctx, rx, ry, tw + padX * 2, 22, 6);
         ctx.fill();
-        ctx.restore();
-      } else if (tickSpec.unit === 'month') {
-        // Month boundary as a small circle on the baseline
-        ctx.save();
-        const mr = 6; // slightly larger to align visually with bracket corners
         ctx.fillStyle = '#1e3a5f';
-        ctx.beginPath();
-        ctx.arc(x, midY, mr, 0, Math.PI * 2);
-        ctx.fill();
+        ctx.fillText(text, x, ry + padY);
         ctx.restore();
-      } else if (tickSpec.unit === 'day') {
-        // Day ticks: short lines
-        ctx.save();
-        ctx.strokeStyle = 'rgba(30,58,95,0.35)';
-        ctx.beginPath();
-        ctx.moveTo(x, midY - 10);
-        ctx.lineTo(x, midY + 10);
-        ctx.stroke();
-        ctx.restore();
+      } else if (tickSpec.unit === 'year') {
+        // Year ticks/labels are handled by drawYearTicks() for calendar alignment.
+        // Skip here to avoid duplicate or drifted (365-day) spacing.
       } else {
-        // Hour ticks: smaller lines
-        ctx.save();
-        ctx.strokeStyle = 'rgba(30,58,95,0.28)';
-        ctx.beginPath();
-        ctx.moveTo(x, midY - 8);
-        ctx.lineTo(x, midY + 8);
-        ctx.stroke();
-        ctx.restore();
+        // Skip labels for month/day/hour in this loop; handled by bracket/day logic.
+        // As a safety net, if no brackets/day ticks are shown, we still want year ticks visible.
+        // drawYearTicks is already called above when needed.
       }
-
-      const label = tickSpec.fmt(new Date(t));
-      const text = String(label);
-      const padX = 6;
-      const padY = 3;
-      // Larger font for year labels; smaller for hours; largest for millennia
-      const isMillennium = tickSpec.unit === 'millennium';
-      const isYear = tickSpec.unit === 'year';
-      const isHour = tickSpec.unit === 'hour';
-      ctx.save();
-      ctx.font = `${(isMillennium || isYear) ? '600 ' : ''}${isMillennium ? 16 : (isYear ? 14 : (isHour ? 11 : 12))}px ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto`;
-      const metrics = ctx.measureText(text);
-      const tw = Math.ceil(metrics.width);
-      const th = isMillennium ? 22 : (isYear ? 20 : (isHour ? 14 : 16));
-      const rx = x - (tw / 2) - padX;
-      const ry = midY + (isHour ? 14 : 18);
-      // label background
-      ctx.fillStyle = 'rgba(250,246,240,0.85)';
-      drawRoundedRect(ctx, rx, ry, tw + padX * 2, th, 6);
-      ctx.fill();
-      // no stroke (border) around the year label background
-      // label text
-      ctx.fillStyle = '#1e3a5f';
-      ctx.fillText(text, x, ry + padY);
-      ctx.restore();
     }
+
+    // Final safeguard: ensure year ticks/labels are always visible at any zoom
+    drawYearTicks();
 
     if (points.length === 0) {
       ctx.save();
@@ -916,6 +1051,7 @@ export default function InfiniteTimeline({ submissions = [], height = '70vh', ca
 }
 
 function RadialTool({ x, y, onSelectType }) {
+  const disabledKeys = new Set(['percentage', 'stats', 'data', 'api', 'group', 'multi', 'import']);
   const items = [
     { key: 'event', icon: '📍', label: 'Event' },
     { key: 'period', icon: '⏳', label: 'Time Period' },
@@ -926,7 +1062,7 @@ function RadialTool({ x, y, onSelectType }) {
     { key: 'group', icon: '🗂️', label: 'Grouping' },
     { key: 'multi', icon: '📉', label: 'MultiStatistics' },
     { key: 'import', icon: '🔗', label: 'Import Google' },
-  ];
+  ].map((it) => ({ ...it, disabled: disabledKeys.has(it.key) }));
   const radius = 96;
   const centerY = `${y}px`;
 
@@ -966,12 +1102,23 @@ function RadialTool({ x, y, onSelectType }) {
               }}
             >
               <div className="group relative">
-                <button onClick={() => onSelectType && onSelectType(it.key)} className="w-10 h-10 rounded-full bg-white/95 border border-[#e3c292]/60 shadow-md hover:shadow-xl flex items-center justify-center text-base transition-transform duration-150 hover:scale-110">
+                <button
+                  onClick={() => { if (!it.disabled) onSelectType && onSelectType(it.key); }}
+                  aria-disabled={it.disabled}
+                  className={`w-10 h-10 rounded-full border border-[#e3c292]/60 shadow-md flex items-center justify-center text-base transition-transform duration-150 ${
+                    it.disabled
+                      ? 'bg-white/70 cursor-not-allowed opacity-50'
+                      : 'bg-white/95 hover:shadow-xl hover:scale-110'
+                  }`}
+                  title={it.disabled ? 'Disabled' : it.label}
+                >
                   <span>{it.icon}</span>
                 </button>
                 {/* Tooltip above the icon */}
                 <div className="pointer-events-none absolute left-1/2 -translate-x-1/2 -top-8 opacity-0 group-hover:opacity-100 transition-opacity">
-                  <div className="bg-[#1e3a5f] text-white text-[10px] px-2 py-1 rounded shadow whitespace-nowrap">{it.label}</div>
+                  <div className={`text-[10px] px-2 py-1 rounded shadow whitespace-nowrap ${it.disabled ? 'bg-gray-500 text-white' : 'bg-[#1e3a5f] text-white'}`}>
+                    {it.disabled ? `${it.label} (Disabled)` : it.label}
+                  </div>
                 </div>
               </div>
             </div>

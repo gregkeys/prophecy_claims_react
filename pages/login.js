@@ -13,12 +13,14 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
 
   // Prefer runtime origin (works locally) and fall back to env for SSR
-  const origin = (typeof window !== 'undefined' && window.location?.origin)
+  const siteOrigin = (typeof window !== 'undefined' && window.location?.origin)
     ? window.location.origin
     : (process.env.NEXT_PUBLIC_SITE_URL || '');
-  // Always use the site origin for magic link and Google OAuth (do not use Supabase URL)
-  const redirectTo = origin || undefined;
-  const resetRedirectTo = origin ? `${origin}/reset-password` : redirectTo;
+
+  // Force explicit, on-site callback targets to avoid Supabase defaulting to its own domain
+  // We always return to the Login page which handles the session and then navigates
+  const redirectTo = siteOrigin ? `${siteOrigin}/login` : undefined;
+  const resetRedirectTo = siteOrigin ? `${siteOrigin}/reset-password` : undefined;
 
   const handleEmailPassword = async (e) => {
     e.preventDefault();

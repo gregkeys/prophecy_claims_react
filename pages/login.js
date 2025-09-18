@@ -16,8 +16,8 @@ export default function LoginPage() {
   const origin = (typeof window !== 'undefined' && window.location?.origin)
     ? window.location.origin
     : (process.env.NEXT_PUBLIC_SITE_URL || '');
-  const absoluteRedirect = process.env.NEXT_PUBLIC_AUTH_ABSOLUTE_REDIRECT || '';
-  const redirectTo = absoluteRedirect || origin || undefined; // Google + magic link → origin
+  // Always use the site origin for magic link and Google OAuth (do not use Supabase URL)
+  const redirectTo = origin || undefined;
   const resetRedirectTo = origin ? `${origin}/reset-password` : redirectTo;
 
   const handleEmailPassword = async (e) => {

@@ -41,33 +41,10 @@ export default function Timelines({ timelines }) {
         <link rel="icon" href="/favicon.ico" />
       </Head>
 
-      {/* Navigation Header */}
-      <nav className="fixed top-0 left-0 right-0 z-50 bg-[#1e3a5f]/95 backdrop-blur-sm border-b border-[#2c5f6f]">
-        <div className="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
-          <Link href="/" className="font-display text-2xl font-bold prophecy-gradient-text">
-            Prophecy.Claims
-          </Link>
-          <div className="flex items-center space-x-6">
-            <Link href="/" className="text-[#faf6f0] hover:text-[#d4a574] transition-colors">
-              Home
-            </Link>
-            <Link href="/timelines" className="text-[#d4a574] font-semibold">
-              Timelines
-            </Link>
-            <a 
-              href="https://app.prophecy.claims" 
-              target="_blank" 
-              rel="noopener noreferrer"
-              className="prophecy-button-sm px-4 py-2 text-sm"
-            >
-              Create Timeline
-            </a>
-          </div>
-        </div>
-      </nav>
+      {/* Uses global header from _app.js */}
 
       {/* Hero Section */}
-      <section className="relative min-h-screen flex flex-col justify-center pt-20 pb-10 overflow-hidden">
+      <section className="relative min-h-screen flex flex-col justify-center pt-16 pb-10 overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-br from-[#1e3a5f] via-[#2c5f6f] to-[#87ceeb]"></div>
         
         {/* Floating Elements */}

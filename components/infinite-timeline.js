@@ -5,7 +5,7 @@ import { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 // - Clusters many items when crowded
 // - Expects submissions: [{ id, title, created_at, submission_content: [{ type, content }] }]
 // - Extracts a date from timeframe content or created_at
-export default function InfiniteTimeline({ submissions = [], height = '70vh', canEdit = false }) {
+export default function InfiniteTimeline({ submissions = [], height = '70vh', canEdit = false, onCreateRequest, onOpenSubmission }) {
   const canvasRef = useRef(null);
   const containerRef = useRef(null);
   const overlayRef = useRef(null);
@@ -25,8 +25,15 @@ export default function InfiniteTimeline({ submissions = [], height = '70vh', ca
   const points = useMemo(() => {
     const parseTimeframe = (contents) => {
       if (!contents) return null;
-      const tf = contents.find((c) => (c?.type || '').toLowerCase() === 'timeframe');
+      const tf = (contents || []).find((c) => (c?.type || '').toLowerCase() === 'timeframe');
       if (!tf) return null;
+      // Prefer structured timestamps from metadata when present
+      const meta = tf.metadata || {};
+      const metaTs = Number.isFinite(meta?.ts) ? meta.ts
+        : Number.isFinite(meta?.start_ts) ? meta.start_ts
+        : null;
+      if (Number.isFinite(metaTs)) return metaTs;
+      // Fallback to ISO/text content
       const text = String(tf.content || '').trim();
       const parsed = Date.parse(text);
       return Number.isFinite(parsed) ? parsed : null;
@@ -34,7 +41,7 @@ export default function InfiniteTimeline({ submissions = [], height = '70vh', ca
 
     const parseEventStyle = (contents) => {
       if (!contents) return null;
-      const styleItem = contents.find((c) => (c?.type || '').toLowerCase() === 'timeline_style');
+      const styleItem = (contents || []).find((c) => (c?.type || '').toLowerCase() === 'timeline_style');
       if (!styleItem) return null;
       // Parse strictly from metadata jsonb
       const raw = styleItem.metadata;
@@ -93,6 +100,9 @@ export default function InfiniteTimeline({ submissions = [], height = '70vh', ca
 
     return submissions
       .map((s) => {
+        // Skip non-active submissions
+        const subStatus = (s?.status || 'active').toString().toLowerCase();
+        if (subStatus !== 'active') return null;
         const ts = parseTimeframe(s.submission_content) || Date.parse(s.created_at || '') || null;
         const style = parseEventStyle(s.submission_content);
         return ts
@@ -118,8 +128,12 @@ export default function InfiniteTimeline({ submissions = [], height = '70vh', ca
     }
     const min = points[0].ts;
     const max = points[points.length - 1].ts;
-    const pad = Math.max(1, (max - min) * 0.1);
-    return { min: min - pad, max: max + pad };
+    const span = Math.max(1, max - min);
+    const day = 24 * 60 * 60 * 1000;
+    const MIN_SPAN_MS = 180 * day; // ensure reasonable view when only one/few points
+    const desiredSpan = Math.max(span * 1.2, MIN_SPAN_MS);
+    const extra = Math.max(0, (desiredSpan - span) / 2);
+    return { min: min - extra, max: max + extra };
   }, [points]);
 
   // Base mapping: at scale 1, 1px = baseMsPerPx milliseconds
@@ -153,6 +167,11 @@ export default function InfiniteTimeline({ submissions = [], height = '70vh', ca
   };
 
   const msPerPx = baseMsPerPx / Math.max(MIN_SCALE, scale);
+
+  // UTC-based formatters to avoid local timezone drift in labels
+  const MONTH_SHORT = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const formatMonthYearUTC = (d) => `${MONTH_SHORT[d.getUTCMonth()]} ${d.getUTCFullYear()}`;
+  const formatDayUTC = (d) => `${MONTH_SHORT[d.getUTCMonth()]} ${String(d.getUTCDate()).padStart(2, '0')}`;
 
   const timeToX = useCallback(
     (ts, width) => {
@@ -255,7 +274,7 @@ export default function InfiniteTimeline({ submissions = [], height = '70vh', ca
 
     // Ensure ticks are not overly dense (allow denser ticks for hours)
     const pxPerHour = hour / msPerPx;
-    const minPxPerTick = baseUnit === 'hour' ? 30 : 80; // allow 24 hourly segments
+    const minPxPerTick = baseUnit === 'hour' ? 30 : 80;
     const multiples = baseUnit === 'millennium'
       ? [1]
       : baseUnit === 'year'
@@ -277,11 +296,21 @@ export default function InfiniteTimeline({ submissions = [], height = '70vh', ca
       stepMs = hour;
     }
 
+    // Additional protection: ensure label boxes will not overlap by requiring
+    // a larger minimum spacing in pixels for labels. If spacing is too small,
+    // escalate the step by an integer factor.
+    const labelMinPx = baseUnit === 'hour' ? 60 : baseUnit === 'day' ? 90 : baseUnit === 'month' ? 120 : 140;
+    const spacingPx = stepMs / msPerPx;
+    if (spacingPx < labelMinPx) {
+      const factor = Math.max(1, Math.ceil(labelMinPx / Math.max(1, spacingPx)));
+      stepMs = stepMs * factor;
+    }
+
     const fmt = (d) => {
       if (baseUnit === 'millennium') return `${Math.floor(d.getUTCFullYear() / 1000) * 1000}`;
       if (baseUnit === 'hour') return d.toLocaleTimeString('en-US', { hour: '2-digit' });
-      if (baseUnit === 'day') return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-      if (baseUnit === 'month') return d.toLocaleString('en-US', { month: 'short', year: 'numeric' });
+      if (baseUnit === 'day') return formatDayUTC(d);
+      if (baseUnit === 'month') return formatMonthYearUTC(d);
       return d.getUTCFullYear();
     };
 
@@ -445,9 +474,21 @@ export default function InfiniteTimeline({ submissions = [], height = '70vh', ca
     ctx.textBaseline = 'top';
     ctx.font = '12px ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto';
 
-    // Month bracket when months (or days) are visible
-    if (tickSpec.unit === 'month' || tickSpec.unit === 'day') {
+    // Month bracket only when <= ~12 months visible (regardless of tick unit)
+    {
       const tEnd = xToTime(width, width);
+      const dayMsLocal = 24 * 60 * 60 * 1000;
+      const monthMsLocal = 30 * dayMsLocal;
+      const approxMonthsVisible = Math.max(1, (tEnd - tStart) / monthMsLocal);
+      // Also compute a more accurate month count based on UTC months
+      const sd = new Date(tStart);
+      const ed = new Date(tEnd);
+      const monthsAccurate = Math.max(1,
+        (ed.getUTCFullYear() - sd.getUTCFullYear()) * 12 + (ed.getUTCMonth() - sd.getUTCMonth()) + 1
+      );
+      const monthsVisible = Math.min(approxMonthsVisible, monthsAccurate);
+      const showBrackets = monthsVisible <= 12.5;
+      if (showBrackets) {
       const startDate = new Date(tStart);
       // Use UTC to avoid DST/timezone drift and start from the month that contains tStart
       const monthStart = new Date(Date.UTC(startDate.getUTCFullYear(), startDate.getUTCMonth(), 1));
@@ -461,8 +502,6 @@ export default function InfiniteTimeline({ submissions = [], height = '70vh', ca
       const maxShiftRightPx = 30;
       const minTotalGapPx = 4;   // at far zoom-out (narrow months)
       const minShiftRightPx = 2;
-      const dayMsLocal = 24 * 60 * 60 * 1000;
-      const monthMsLocal = 30 * dayMsLocal;
       const monthWidthPx = monthMsLocal / msPerPx;
       const visibleMinMonthPx = 80;  // close to tick density threshold for months
       const visibleMaxMonthPx = 600; // beyond this we consider fully zoomed for months
@@ -510,6 +549,7 @@ export default function InfiniteTimeline({ submissions = [], height = '70vh', ca
         ctx.stroke();
       }
       ctx.restore();
+      }
     }
 
     for (let t = first; t < xToTime(width, width) + step; t += step) {
@@ -702,11 +742,36 @@ export default function InfiniteTimeline({ submissions = [], height = '70vh', ca
       setHoverInfo(found);
     };
     const onLeave = () => setHoverInfo(null);
+    const onClick = (e) => {
+      if (!onOpenSubmission) return;
+      const rect2 = canvas.getBoundingClientRect();
+      const x = e.clientX - rect2.left;
+      const y = e.clientY - rect2.top;
+      let best = { id: null, dist2: Infinity };
+      buckets.forEach((b) => {
+        const dx = Math.abs(b.x - x);
+        const dy = Math.abs(midY - y);
+        const radius = Math.min(10 + b.items.length * 2, 28) / 2 + 6;
+        const d2 = dx * dx + dy * dy;
+        if (d2 <= radius * radius) {
+          // pick the nearest item's timestamp to cursor X
+          (b.items || []).forEach((p) => {
+            const px = timeToX(p.ts, rect2.width);
+            const ddx = px - x;
+            const dd2 = ddx * ddx + dy * dy;
+            if (dd2 < best.dist2) best = { id: p.id, dist2: dd2 };
+          });
+        }
+      });
+      if (best.id) onOpenSubmission(best.id);
+    };
     canvas.addEventListener('pointermove', onMove);
     canvas.addEventListener('pointerleave', onLeave);
+    canvas.addEventListener('click', onClick);
     return () => {
       canvas.removeEventListener('pointermove', onMove);
       canvas.removeEventListener('pointerleave', onLeave);
+      canvas.removeEventListener('click', onClick);
     };
   }, [containerWidth, dpr, height, msPerPx, panX, points, tickSpec, timeToX, xToTime, scale]);
 
@@ -715,7 +780,17 @@ export default function InfiniteTimeline({ submissions = [], height = '70vh', ca
       <div ref={containerRef} className="relative w-full" style={{ height }}>
         <canvas ref={canvasRef} className="w-full h-full rounded-lg shadow-sm bg-[#faf6f0]" />
         {canEdit && tool && (
-          <RadialTool key={tool.id} x={tool.x} y={tool.y} />
+          <RadialTool
+            key={tool.id}
+            x={tool.x}
+            y={tool.y}
+            onSelectType={(t) => {
+              if (typeof onCreateRequest === 'function') {
+                onCreateRequest({ type: t, ts: tool.ts });
+              }
+              setTool(null);
+            }}
+          />
         )}
         {/* Hover tooltip (uses cluster detection above) */}
         {/* Always-visible connectors and cards (one per bucket) */}
@@ -750,7 +825,7 @@ export default function InfiniteTimeline({ submissions = [], height = '70vh', ca
             )}
             {/* Premium/standard card container */}
             <div
-              className="absolute p-3 text-xs"
+              className="absolute p-3 text-xs pointer-events-auto"
               style={{
                 left: `${Math.round(lc.left)}px`,
                 top: cardTop,
@@ -806,7 +881,15 @@ export default function InfiniteTimeline({ submissions = [], height = '70vh', ca
                     boxShadow: borderStyle === 'drop shadow' ? `0 6px 14px ${borderColor || '#00000055'}` : borderStyle === 'glow' ? `0 0 16px ${borderColor || '#00000055'}` : undefined
                   };
                   return (
-                    <div key={p.id} className={`flex items-start gap-3 ${alignClass}`} style={{ color: textColor }}>
+                    <div
+                      key={p.id}
+                      className={`flex items-start gap-3 ${alignClass} cursor-pointer hover:opacity-90`}
+                      style={{ color: textColor }}
+                      onClick={() => onOpenSubmission && onOpenSubmission(p.id)}
+                      role="button"
+                      tabIndex={0}
+                      onKeyDown={(e) => { if (e.key === 'Enter') onOpenSubmission && onOpenSubmission(p.id); }}
+                    >
                       {imgUrl && <img src={imgUrl} alt="thumb" className="w-10 h-10 rounded-md object-cover border" style={{ borderColor: borderColor || '#e3c292' }} />}
                       <div className="min-w-0 rounded-md p-1" style={cardStyle}>
                         <div className="font-semibold truncate" style={{ color: textColor }}>{title}</div>
@@ -832,7 +915,7 @@ export default function InfiniteTimeline({ submissions = [], height = '70vh', ca
   );
 }
 
-function RadialTool({ x, y }) {
+function RadialTool({ x, y, onSelectType }) {
   const items = [
     { key: 'event', icon: '📍', label: 'Event' },
     { key: 'period', icon: '⏳', label: 'Time Period' },
@@ -883,7 +966,7 @@ function RadialTool({ x, y }) {
               }}
             >
               <div className="group relative">
-                <button className="w-10 h-10 rounded-full bg-white/95 border border-[#e3c292]/60 shadow-md hover:shadow-xl flex items-center justify-center text-base transition-transform duration-150 hover:scale-110">
+                <button onClick={() => onSelectType && onSelectType(it.key)} className="w-10 h-10 rounded-full bg-white/95 border border-[#e3c292]/60 shadow-md hover:shadow-xl flex items-center justify-center text-base transition-transform duration-150 hover:scale-110">
                   <span>{it.icon}</span>
                 </button>
                 {/* Tooltip above the icon */}

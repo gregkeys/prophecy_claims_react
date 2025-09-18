@@ -73,14 +73,12 @@ export default function Home({ claims }) {
             </div>
 
             <div className="flex flex-col sm:flex-row gap-4 justify-center items-center mb-12">
-              <a 
-                href="https://app.prophecy.claims" 
-                target="_blank" 
-                rel="noopener noreferrer"
+              <Link 
+                href="/dashboard" 
                 className="prophecy-button text-lg px-8 py-4 inline-block text-center no-underline"
               >
                 Create Your Timeline
-              </a>
+              </Link>
               <Link href="/timelines" className="bg-transparent border-2 border-[#faf6f0] text-[#faf6f0] px-8 py-4 rounded-full font-semibold text-lg hover:bg-[#faf6f0] hover:text-[#1e3a5f] transition-all duration-300 inline-block text-center no-underline">
                 Explore Timelines
               </Link>

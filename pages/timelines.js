@@ -42,21 +42,16 @@ export default function Timelines({ timelines }) {
       {/* Uses global header from _app.js */}
 
       {/* Hero Section */}
-      <section className="relative min-h-screen flex flex-col justify-center pt-16 pb-10 overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-to-br from-[#1e3a5f] via-[#2c5f6f] to-[#87ceeb]"></div>
-        
-        {/* Floating Elements */}
-        <div className="absolute inset-0 overflow-hidden">
-          <div className="absolute top-32 left-10 w-32 h-32 bg-gradient-to-r from-[#d4a574] to-[#f4d03f] rounded-full opacity-20 animate-float"></div>
-          <div className="absolute top-60 right-20 w-24 h-24 bg-gradient-to-r from-[#e89547] to-[#d4a574] rounded-full opacity-30 animate-float" style={{ animationDelay: '1s' }}></div>
-        </div>
+      <section className="relative min-h-screen flex flex-col justify-center pt-16 pb-10 overflow-hidden" style={{ background: 'linear-gradient(180deg, #faf6f0 0%, #ffffff 60%, #faf6f0 100%)' }}>
+        <div className="absolute inset-0" />
+        {/* Floating Elements removed for a cleaner light default */}
 
         <div className="relative z-10 flex-1 flex flex-col justify-center px-4 max-w-7xl mx-auto w-full">
           <div className={`text-center mb-16 transition-all duration-1000 ${isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'}`}>
-            <h1 className="font-display text-5xl md:text-7xl font-bold text-[#faf6f0] mb-6">
+            <h1 className="font-display text-5xl md:text-7xl font-bold mb-6" style={{ color: 'var(--text)' }}>
               Divine <span className="prophecy-gradient-text">Timelines</span>
             </h1>
-            <p className="text-xl md:text-2xl text-[#faf6f0] mb-8 max-w-3xl mx-auto opacity-90">
+            <p className="text-xl md:text-2xl mb-8 max-w-3xl mx-auto opacity-90" style={{ color: 'var(--muted)' }}>
               Witness the unfolding of prophetic truth through sacred timelines of revelation
             </p>
           </div>
@@ -83,7 +78,7 @@ function TimelineCard({ timeline, index }) {
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center space-x-2">
           <div className="w-3 h-3 bg-gradient-to-r from-[#d4a574] to-[#f4d03f] rounded-full"></div>
-          <span className="text-xs font-medium text-[#2c5f6f] uppercase tracking-wide">
+          <span className="text-xs font-medium uppercase tracking-wide" style={{ color: 'var(--muted)' }}>
             {timeline.visibility}
           </span>
         </div>
@@ -94,17 +89,17 @@ function TimelineCard({ timeline, index }) {
         )}
       </div>
       
-      <h3 className="font-display text-xl font-semibold text-[#1e3a5f] mb-3">
+      <h3 className="font-display text-xl font-semibold mb-3" style={{ color: 'var(--text)' }}>
         {timeline.name}
       </h3>
       
       {timeline.description && (
-        <div className="bg-gradient-to-r from-[#1e3a5f]/5 to-[#2c5f6f]/5 border border-[#87ceeb]/20 rounded-lg p-3 mb-4">
-          <p className="text-[#2c5f6f] text-sm line-clamp-4">{timeline.description}</p>
+        <div className="border rounded-lg p-3 mb-4" style={{ borderColor: 'var(--border)', background: 'rgba(0,0,0,0.03)' }}>
+          <p className="text-sm" style={{ color: 'var(--muted)' }}>{timeline.description}</p>
         </div>
       )}
 
-      <div className="mt-auto pt-4 border-t border-[#87ceeb]/20 flex items-center justify-between text-xs text-[#2c5f6f]">
+      <div className="mt-auto pt-4 border-t flex items-center justify-between text-xs" style={{ borderColor: 'var(--border)', color: 'var(--muted)' }}>
         <span>{timeline.submission_count} entries</span>
         <span>{new Date(timeline.created_at).toLocaleDateString('en-US', {
           year: 'numeric', month: 'short', day: 'numeric'
@@ -316,12 +311,12 @@ function TimelineItem({ submission, index }) {
           </span>
         </div>
         
-        <h4 className="font-display text-lg font-semibold text-[#1e3a5f] mb-2">
+        <h4 className="font-display text-lg font-semibold" style={{ color: 'var(--text)' }}>
           {submission.title}
         </h4>
         
         {submission.description && (
-          <p className="text-[#2c5f6f] mb-3">{submission.description}</p>
+          <p className="mt-2" style={{ color: 'var(--muted)' }}>{submission.description}</p>
         )}
         
         {getScriptureContent() && (
@@ -334,7 +329,7 @@ function TimelineItem({ submission, index }) {
         {/* Inline content previews: images, videos, audio, scriptures */}
         <ContentPreview contents={submission.submission_content || []} variant="row" />
 
-        <div className="flex items-center space-x-4 text-xs text-[#2c5f6f]">
+        <div className="flex items-center space-x-4 text-xs" style={{ color: 'var(--muted)' }}>
           <span>Created: {new Date(submission.created_at).toLocaleDateString()}</span>
           <span>•</span>
           <span>{submission.submission_content?.length || 0} content items</span>

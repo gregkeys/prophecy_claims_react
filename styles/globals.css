@@ -141,6 +141,23 @@ body {
   }
 }
 
+/* Force light theme regardless of OS when data-theme="light" */
+:root[data-theme='light'] {
+  --bg: var(--prophecy-cream);
+  --surface: #ffffff;
+  --text: var(--prophecy-deep-blue);
+  --muted: var(--prophecy-teal);
+  --accent: var(--prophecy-golden);
+  --border: #e3c292;
+}
+
+/* Ensure components stay light when data-theme="light" even if OS is dark */
+:root[data-theme='light'] .prophecy-card {
+  background: rgba(255, 255, 255, 0.9);
+  box-shadow: 0 8px 32px rgba(30, 58, 95, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
 /* Disable hover effects for horizontal timeline cards */
 .horizontal-timeline .prophecy-card:hover {
   transform: none;
@@ -247,6 +264,12 @@ input[type="text"]:focus {
   }
 }
 
+:root[data-theme='light'] .timeline-controls {
+  background: rgba(255, 255, 255, 0.9);
+  border-color: rgba(255, 255, 255, 0.2);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+}
+
 .timeline-help-panel {
   backdrop-filter: blur(10px);
   background: rgba(255, 255, 255, 0.9);
@@ -261,14 +284,10 @@ input[type="text"]:focus {
   }
 }
 
-/* Force light theme regardless of OS when data-theme="light" */
-:root[data-theme='light'] {
-  --bg: var(--prophecy-cream);
-  --surface: #ffffff;
-  --text: var(--prophecy-deep-blue);
-  --muted: var(--prophecy-teal);
-  --accent: var(--prophecy-golden);
-  --border: #e3c292;
+:root[data-theme='light'] .timeline-help-panel {
+  background: rgba(255, 255, 255, 0.9);
+  border-color: rgba(255, 255, 255, 0.2);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
 }
 
 .timeline-help-panel kbd {

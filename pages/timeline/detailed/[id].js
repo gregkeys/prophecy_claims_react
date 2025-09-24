@@ -19,6 +19,7 @@ export default function DetailedTimeline({ timeline, submissions }) {
   const [isEditing, setIsEditing] = useState(false);
   const [fallbackTimeline, setFallbackTimeline] = useState(null);
   const [fallbackSubmissions, setFallbackSubmissions] = useState([]);
+  const [copyMsg, setCopyMsg] = useState('');
 
   // Drawer create item state
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -512,6 +513,22 @@ export default function DetailedTimeline({ timeline, submissions }) {
       setCreating(false);
     }
   };
+
+  const copyCurrentItemLink = async () => {
+    try {
+      const id = currentSubmissionId;
+      if (!id) return;
+      const origin = typeof window !== 'undefined' ? window.location.origin : '';
+      const path = typeof window !== 'undefined' ? window.location.pathname : `/timeline/detailed/${timeline?.id}`;
+      const url = `${origin}${path}?item=${encodeURIComponent(id)}`;
+      if (navigator?.clipboard?.writeText) await navigator.clipboard.writeText(url);
+      setCopyMsg('Link copied');
+      setTimeout(() => setCopyMsg(''), 1600);
+    } catch (_) {
+      setCopyMsg('Copy failed');
+      setTimeout(() => setCopyMsg(''), 1600);
+    }
+  };
   // When SSR returns notFound for private timelines, allow client-side load for owners
   if (!timeline && (!fallbackTimeline)) {
     // Show a loading state instead of 404 while we try client-side fetch
@@ -581,13 +598,19 @@ export default function DetailedTimeline({ timeline, submissions }) {
             <div className={`fixed inset-0 z-40 ${drawerOpen ? '' : 'pointer-events-none'}`}>
               {/* overlay backdrop to close on outside click */}
               <div className={`absolute inset-0 bg-black/30 transition-opacity ${drawerOpen ? 'opacity-100' : 'opacity-0'}`} onClick={closeDrawer} />
-              <div className={`absolute top-0 right-0 h-full w-[90%] sm:w-[500px] p-[1px] shadow-2xl transition-transform duration-300 ${drawerOpen ? 'translate-x-0' : 'translate-x-full'}`} role="dialog" aria-modal="true" style={{ background: 'linear-gradient(135deg, rgba(232,149,71,0.6), rgba(212,165,116,0.6))' }}>
+              <div className={`absolute top-0 right-0 h-full w-[90%] sm:w-[500px] p-[1px] shadow-2xl transition-transform duration-300 ease-in-out ${drawerOpen ? 'translate-x-0' : 'translate-x-full'}`} role="dialog" aria-modal="true" style={{ background: 'linear-gradient(135deg, rgba(232,149,71,0.6), rgba(212,165,116,0.6))' }}>
               <div className="h-full flex flex-col rounded-l-2xl bg-white/85 backdrop-blur-2xl border-l border-white/50">
-                <div className="px-4 py-3 border-b flex items-center justify-between" style={{ backgroundColor: '#fff9ef' }}>
+                <div className="px-4 py-3 border-b flex items-center justify-between sticky top-0 z-20" style={{ backgroundColor: '#fff9ef' }}>
                   <h2 className="text-lg font-semibold">{viewerMode ? 'Details' : `Add ${itemType === 'event' ? 'Event' : 'Time Period'}`}</h2>
                   <div className="flex items-center gap-2">
                     {!viewerMode && (
                       <button onClick={() => setStyleOpen((v) => !v)} title="Style" aria-label="Style" className="px-3 py-1.5 rounded-full text-sm border border-white/60 bg-white/80 hover:bg-white/95 transition">🎨</button>
+                    )}
+                    {!viewerMode && (
+                      <>
+                        <button onClick={duplicateSubmission} className="px-3 py-1.5 rounded-full text-sm border border-[#e3c292]/60 bg-white hover:bg-[#fff6ee] transition" title="Duplicate">Duplicate</button>
+                        <button onClick={deleteSubmission} className="px-3 py-1.5 rounded-full text-sm bg-red-600 text-white hover:bg-red-700 transition" title="Delete">Delete</button>
+                      </>
                     )}
                     <button onClick={closeDrawer} className="px-3 py-1.5 rounded-full text-sm border border-white/60 bg-white/80 hover:bg-white/95 transition">✕</button>
                   </div>
@@ -596,7 +619,15 @@ export default function DetailedTimeline({ timeline, submissions }) {
                   {viewerMode ? (
                     <div className="space-y-6">
                       <div className="bg-gradient-to-r from-[#fff7e8] to-[#fff] px-5 py-5 border-b border-[#e3c292]/50">
-                        <div className="font-display text-2xl md:text-3xl font-bold text-[#1e3a5f] break-words">{newTitle}</div>
+                        <div className="flex items-center justify-between gap-3">
+                          <div className="font-display text-2xl md:text-3xl font-bold text-[#1e3a5f] break-words">{newTitle}</div>
+                          <div className="flex items-center gap-2">
+                            {currentSubmissionId && (
+                              <button onClick={copyCurrentItemLink} className="px-3 py-1.5 rounded-full border border-[#e3c292]/60 bg-white hover:bg-[#fff6ee] text-xs">Copy link</button>
+                            )}
+                            {copyMsg && <span className="text-xs text-[#2c5f6f]">{copyMsg}</span>}
+                          </div>
+                        </div>
                         <div className="mt-2 inline-flex items-center gap-2 text-xs px-3 py-1 rounded-full bg-[#e3c292]/20 text-[#1e3a5f] border border-[#e3c292]/60">
                           {itemType === 'event' ? (
                             eventDateTime ? new Date(eventDateTime).toLocaleString() : ''
@@ -890,12 +921,7 @@ export default function DetailedTimeline({ timeline, submissions }) {
                   </div>
                 </div>
               </div>
-              {!viewerMode && (
-                <div className="p-4 border-t flex justify-end gap-3">
-                  <button type="button" onClick={duplicateSubmission} className="px-4 py-2 rounded-full border border-white/60 bg-white/80 hover:bg-white/95">Duplicate</button>
-                  <button type="button" onClick={deleteSubmission} className="px-4 py-2 rounded-full bg-red-600 text-white hover:bg-red-700">Delete</button>
-                </div>
-              )}
+              {/* Footer controls not needed; actions now in header */}
               </div>
             </div>
           </div>

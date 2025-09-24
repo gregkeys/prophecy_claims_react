@@ -32,7 +32,7 @@ export default function InfiniteTimeline({ submissions = [], height = '70vh', ca
     if (rafCommitRef.current) return;
     rafCommitRef.current = requestAnimationFrame(() => {
       rafCommitRef.current = null;
-      setPanX(nextPanRef.current);
+      setPanX(Math.round(nextPanRef.current));
       setScale(nextScaleRef.current);
     });
   };
@@ -192,6 +192,14 @@ export default function InfiniteTimeline({ submissions = [], height = '70vh', ca
   };
 
   const msPerPx = baseMsPerPx / Math.max(MIN_SCALE, scale);
+  // Quantize msPerPx to reduce tickSpec churn during small pans/zooms
+  const quantizedMsPerPx = useMemo(() => {
+    const v = msPerPx;
+    if (!Number.isFinite(v) || v <= 0) return v;
+    const exp = Math.max(0, Math.floor(Math.log10(v)) - 1);
+    const unit = Math.pow(10, exp);
+    return Math.round(v / unit) * unit;
+  }, [msPerPx]);
 
   // UTC-based formatters to avoid local timezone drift in labels
   const MONTH_SHORT = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
@@ -284,22 +292,22 @@ export default function InfiniteTimeline({ submissions = [], height = '70vh', ca
     // Choose unit based on visual resolution (ms per pixel)
     let baseUnit = 'year';
     let baseMs = year;
-    if (msPerPx <= 2 * hour) {
+    if (quantizedMsPerPx <= 2 * hour) {
       baseUnit = 'hour';
       baseMs = hour;
-    } else if (msPerPx <= 12 * hour) {
+    } else if (quantizedMsPerPx <= 12 * hour) {
       baseUnit = 'day';
       baseMs = day;
-    } else if (msPerPx <= 45 * day) {
+    } else if (quantizedMsPerPx <= 45 * day) {
       baseUnit = 'month';
       baseMs = month;
-    } else if (msPerPx >= (1000 * year) / 200) { // ~1000-year ticks when showing ~12k years
+    } else if (quantizedMsPerPx >= (1000 * year) / 200) { // ~1000-year ticks when showing ~12k years
       baseUnit = 'millennium';
       baseMs = 1000 * year;
     }
 
     // Ensure ticks are not overly dense. We also map to recognizable levels
-    const pxPerHour = hour / msPerPx;
+    const pxPerHour = hour / quantizedMsPerPx;
     const minPxPerTick = baseUnit === 'hour' ? 30 : 80;
     const multiples = baseUnit === 'millennium'
       ? [1]
@@ -312,7 +320,7 @@ export default function InfiniteTimeline({ submissions = [], height = '70vh', ca
           : [1, 2, 3, 6, 12]; // hour (avoid 24h to prevent single tick)
     let stepMs = baseMs;
     let i = 0;
-    while (stepMs / msPerPx < minPxPerTick && i < multiples.length - 1) {
+    while (stepMs / quantizedMsPerPx < minPxPerTick && i < multiples.length - 1) {
       i += 1;
       stepMs = baseMs * multiples[i];
     }
@@ -326,7 +334,7 @@ export default function InfiniteTimeline({ submissions = [], height = '70vh', ca
     // a larger minimum spacing in pixels for labels. If spacing is too small,
     // escalate the step by an integer factor.
     const labelMinPx = baseUnit === 'hour' ? 60 : baseUnit === 'day' ? 90 : baseUnit === 'month' ? 120 : 140;
-    const spacingPx = stepMs / msPerPx;
+    const spacingPx = stepMs / quantizedMsPerPx;
     if (spacingPx < labelMinPx) {
       const factor = Math.max(1, Math.ceil(labelMinPx / Math.max(1, spacingPx)));
       stepMs = stepMs * factor;
@@ -341,7 +349,7 @@ export default function InfiniteTimeline({ submissions = [], height = '70vh', ca
     };
 
     return { unit: baseUnit, stepMs, fmt };
-  }, [msPerPx]);
+  }, [quantizedMsPerPx]);
 
   // Keep a list of tick positions/labels for hover detection
   const tickPositionsRef = useRef([]);
@@ -1105,12 +1113,12 @@ export default function InfiniteTimeline({ submissions = [], height = '70vh', ca
                       )}
                       {itemStyle === 'marker_text' && (
                         <div className="inline-block px-2 py-1 rounded m-3" style={{ backgroundColor: bgColor || 'transparent', borderColor: borderColor || '#e3c292', borderStyle: cssBorderStyle, borderWidth: borderColor ? 2 : 1, color: textColor, boxShadow, boxSizing: 'border-box' }}>
-                          <div className="font-semibold truncate max-w-[280px] flex items-center gap-2"><span className={`inline-block text-[10px] px-1.5 py-0.5 rounded-full ${isPeriod ? 'bg-[#2c5f6f] text-white' : 'bg-[#d4a574] text-[#1e3a5f]'}`}>{isPeriod ? 'Period' : 'Event'}</span><span className="truncate">{title}</span></div>
+                          <div className="font-semibold truncate max-w-[280px] flex items-center gap-2">{isPeriod && (<span className="inline-block text-[10px] px-1.5 py-0.5 rounded-full bg-[#2c5f6f] text-white">Period</span>)}<span className="truncate">{title}</span></div>
                         </div>
                       )}
                       {(itemStyle === 'chat_bubble' || itemStyle === 'chat_square') && (
                         <div className="inline-block px-3 py-2 m-3" style={{ backgroundColor: bgColor || 'rgba(255,255,255,0.95)', color: textColor, borderColor: borderColor || '#e3c292', borderStyle: cssBorderStyle, borderWidth: borderColor ? 2 : 1, borderRadius: itemStyle === 'chat_square' ? 10 : 9999, boxShadow, boxSizing: 'border-box' }}>
-                          <div className="font-semibold truncate max-w-[280px] flex items-center gap-2"><span className={`inline-block text-[10px] px-1.5 py-0.5 rounded-full ${isPeriod ? 'bg-[#2c5f6f] text-white' : 'bg-[#d4a574] text-[#1e3a5f]'}`}>{isPeriod ? 'Period' : 'Event'}</span><span className="truncate">{title}</span></div>
+                          <div className="font-semibold truncate max-w-[280px] flex items-center gap-2">{isPeriod && (<span className="inline-block text-[10px] px-1.5 py-0.5 rounded-full bg-[#2c5f6f] text-white">Period</span>)}<span className="truncate">{title}</span></div>
                           {desc && <div className="truncate max-w-[280px]" style={{ color: subTextColor }}>{desc}</div>
                           }
                           <div className="text-[10px] mt-0.5" style={{ color: subTextColor }}>{dateStr}</div>
@@ -1121,7 +1129,7 @@ export default function InfiniteTimeline({ submissions = [], height = '70vh', ca
                           <div className="flex items-start gap-3">
                             {imgUrl && <img src={imgUrl} alt="thumb" className="w-12 h-12 rounded object-cover" style={{ borderColor: borderColor || '#e3c292', borderStyle: cssBorderStyle, borderWidth: borderColor ? 2 : 1, boxSizing: 'border-box' }} />}
                             <div className="min-w-0">
-                              <div className="font-semibold truncate flex items-center gap-2"><span className={`inline-block text-[10px] px-1.5 py-0.5 rounded-full ${isPeriod ? 'bg-[#2c5f6f] text-white' : 'bg-[#d4a574] text-[#1e3a5f]'}`}>{isPeriod ? 'Period' : 'Event'}</span><span className="truncate">{title}</span></div>
+                              <div className="font-semibold truncate flex items-center gap-2">{isPeriod && (<span className="inline-block text-[10px] px-1.5 py-0.5 rounded-full bg-[#2c5f6f] text-white">Period</span>)}<span className="truncate">{title}</span></div>
                               {desc && <div className="truncate" style={{ color: subTextColor }}>{desc}</div>}
                               <div className="text-[10px] mt-0.5" style={{ color: subTextColor }}>{dateStr}</div>
                             </div>

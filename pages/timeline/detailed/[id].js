@@ -39,6 +39,7 @@ export default function DetailedTimeline({ timeline, submissions }) {
   const [contentItems, setContentItems] = useState([]);
   const [textContent, setTextContent] = useState('');
   const [imageUrl, setImageUrl] = useState('');
+  const [uploadingImage, setUploadingImage] = useState(false);
   const [videoUrl, setVideoUrl] = useState('');
   const [audioUrl, setAudioUrl] = useState('');
   const [linkUrl, setLinkUrl] = useState('');
@@ -83,6 +84,7 @@ export default function DetailedTimeline({ timeline, submissions }) {
     setSelectedContent(null);
     setTextContent('');
     setImageUrl('');
+    setUploadingImage(false);
     setVideoUrl('');
     setAudioUrl('');
     setLinkUrl('');
@@ -158,7 +160,7 @@ export default function DetailedTimeline({ timeline, submissions }) {
       if (subErr) throw subErr;
       const newId = subRows?.id;
 
-      const rows = (contents || []).map((c) => ({ submission_id: newId, type: c.type, content: c.content, metadata: c.metadata }));
+      const rows = (contents || []).map((c) => ({ submission_id: newId, type: c.type, content: c.content, file_path: c.file_path || null, metadata: c.metadata }));
       if (rows.length > 0) {
         const { error: insErr } = await browserSupabase.from('submission_content').insert(rows);
         if (insErr) throw insErr;
@@ -203,7 +205,7 @@ export default function DetailedTimeline({ timeline, submissions }) {
       } else if (type === 'image') {
         const url = (imageUrl || '').trim();
         if (!url) throw new Error('Image URL is required');
-        item = { type, content: url };
+        item = { type, content: url, file_path: null };
       } else if (type === 'video') {
         const url = (videoUrl || '').trim();
         if (!url) throw new Error('Video URL is required');
@@ -236,6 +238,27 @@ export default function DetailedTimeline({ timeline, submissions }) {
       }
       if (item) {
         setContentItems((prev) => [...prev, item]);
+        // persist immediately if we have a submission id
+        if (currentSubmissionId && browserSupabase) {
+          (async () => {
+            try {
+              const row = {
+                submission_id: currentSubmissionId,
+                type: item.type,
+                content: item.content || '',
+                file_path: item.file_path || null,
+                metadata: item.metadata || null,
+              };
+              const { error } = await browserSupabase
+                .from('submission_content')
+                .insert([row]);
+              if (error) throw error;
+              await refreshSubmission(currentSubmissionId);
+            } catch (e) {
+              setCreateError(e?.message || 'Failed to save content');
+            }
+          })();
+        }
         resetContentForms();
       }
     } catch (e) {
@@ -255,6 +278,72 @@ export default function DetailedTimeline({ timeline, submissions }) {
     const clean = str.replace(/^\/+/, '');
     const withBucket = clean.startsWith(`${bucket}/`) ? clean : `${bucket}/${clean}`;
     return `${base}/storage/v1/object/public/${withBucket}`;
+  };
+
+  const uploadImageFile = async (file) => {
+    try {
+      if (!file) return null;
+      if (!browserSupabase) throw new Error('Storage unavailable');
+
+      // Ensure we have a fresh session so the storage request is authorized
+      try { await browserSupabase.auth.getSession(); } catch (_) {}
+
+      setCreateError('');
+      setUploadingImage(true);
+
+      const bucket = process.env.NEXT_PUBLIC_SUPABASE_BUCKET || 'prophecy-files';
+      if (!bucket) throw new Error('Bucket not configured');
+      const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+      const uid = currentUserId || 'anonymous';
+      const path = `images/${uid}/${Date.now()}-${safeName}`;
+
+      const { error: upErr } = await browserSupabase.storage
+        .from(bucket)
+        .upload(path, file, {
+          contentType: file.type || 'application/octet-stream',
+          upsert: true,
+          cacheControl: '3600'
+        });
+      if (upErr) throw upErr;
+
+      const storagePath = path; // store path relative to bucket, aligns with Flutter app
+
+      const newItem = {
+        type: 'image',
+        content: storagePath,
+        file_path: storagePath,
+        metadata: { original_name: file.name, size: file.size, mime: file.type }
+      };
+
+      // Queue immediately for preview
+      setContentItems((prev) => [...prev, newItem]);
+
+      // Persist immediately if we have a submission id
+      if (currentSubmissionId) {
+        const row = {
+          submission_id: currentSubmissionId,
+          type: 'image',
+          content: newItem.content,
+          file_path: newItem.file_path,
+          metadata: newItem.metadata,
+        };
+        const { error: insErr } = await browserSupabase
+          .from('submission_content')
+          .insert([row]);
+        if (insErr) throw insErr;
+        await refreshSubmission(currentSubmissionId);
+      }
+
+      return storagePath;
+    } catch (e) {
+      // Log detailed error for debugging
+      // eslint-disable-next-line no-console
+      console.error('Upload failed', e);
+      setCreateError(e?.message || 'Image upload failed');
+      return null;
+    } finally {
+      setUploadingImage(false);
+    }
   };
 
   const refreshSubmission = async (submissionId) => {
@@ -484,6 +573,7 @@ export default function DetailedTimeline({ timeline, submissions }) {
           submission_id: submissionId,
           type: ci.type,
           content: ci.content || '',
+          file_path: ci.file_path || null,
           metadata: ci.metadata || null
         }));
         const { error: addErr } = await browserSupabase
@@ -797,8 +887,26 @@ export default function DetailedTimeline({ timeline, submissions }) {
                         )}
                         {selectedContent === 'image' && (
                           <div className="space-y-2">
-                            <input className="w-full rounded-xl bg-white/80 border border-white/60 px-3 py-2" value={imageUrl} onChange={(e) => setImageUrl(e.target.value)} placeholder="Image URL" />
-                            <div className="flex justify-end"><button type="button" className="px-4 py-2 rounded-full border border-white/60 bg-white/80 hover:bg-white/95" onClick={addContentItem}>Add Image</button></div>
+                            <div>
+                              <input
+                                type="file"
+                                accept="image/*"
+                                className="w-full rounded-xl bg-white/80 border border-white/60 px-3 py-2"
+                                onChange={async (e) => {
+                                  const file = e.target.files && e.target.files[0];
+                                  if (file) {
+                                    await uploadImageFile(file);
+                                    // reset input so same file can be re-selected if needed
+                                    e.target.value = '';
+                                  }
+                                }}
+                                disabled={uploadingImage}
+                              />
+                              {uploadingImage && <div className="text-xs text-[#2c5f6f] mt-1">Uploading…</div>}
+                            </div>
+                            <div className="text-xs text-[#2c5f6f]">Or paste a public image URL:</div>
+                            <input className="w-full rounded-xl bg-white/80 border border-white/60 px-3 py-2" value={imageUrl} onChange={(e) => setImageUrl(e.target.value)} placeholder="https://example.com/image.jpg" />
+                            <div className="flex justify-end"><button type="button" className="px-4 py-2 rounded-full border border-white/60 bg-white/80 hover:bg-white/95" onClick={addContentItem} disabled={!imageUrl}>Add Image</button></div>
                           </div>
                         )}
                         {selectedContent === 'video' && (

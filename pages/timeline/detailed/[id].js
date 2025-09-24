@@ -35,7 +35,7 @@ export default function DetailedTimeline({ timeline, submissions }) {
   const [currentSubmissionId, setCurrentSubmissionId] = useState(null);
 
   // Content area state
-  const [selectedContent, setSelectedContent] = useState(null); // 'text' | 'image' | 'video' | 'audio' | 'link' | 'scripture' | 'celestial'
+  const [selectedContent, setSelectedContent] = useState(null); // 'text' | 'image' | 'video' | 'audio' | 'url' | 'scriptures' | 'celestial'
   const [contentItems, setContentItems] = useState([]);
   const [textContent, setTextContent] = useState('');
   const [imageUrl, setImageUrl] = useState('');
@@ -214,12 +214,12 @@ export default function DetailedTimeline({ timeline, submissions }) {
         const url = (audioUrl || '').trim();
         if (!url) throw new Error('Audio URL is required');
         item = { type, content: url };
-      } else if (type === 'link') {
+      } else if (type === 'url') {
         const url = (linkUrl || '').trim();
         if (!url) throw new Error('Link URL is required');
         const metadata = linkTitle ? { title: linkTitle } : null;
         item = { type, content: url, metadata };
-      } else if (type === 'scripture') {
+      } else if (type === 'scriptures') {
         const ref = (scriptureRef || '').trim();
         if (!ref) throw new Error('Scripture reference is required');
         const metadata = scriptureText ? { text: scriptureText } : null;
@@ -863,8 +863,8 @@ export default function DetailedTimeline({ timeline, submissions }) {
                             { key: 'image', label: 'Image', icon: '🖼️' },
                             { key: 'video', label: 'Video', icon: '🎬' },
                             { key: 'audio', label: 'Audio', icon: '🎙️' },
-                            { key: 'link', label: 'Link', icon: '🔗' },
-                            { key: 'scripture', label: 'Scripture', icon: '📖' },
+                            { key: 'url', label: 'URL', icon: '🔗' },
+                            { key: 'scriptures', label: 'Scriptures', icon: '📖' },
                             { key: 'celestial', label: 'Celestial', icon: '🌙' }
                           ].map((ct) => (
                             <button
@@ -921,18 +921,18 @@ export default function DetailedTimeline({ timeline, submissions }) {
                             <div className="flex justify-end"><button type="button" className="px-4 py-2 rounded-full border border-white/60 bg-white/80 hover:bg-white/95" onClick={addContentItem}>Add Audio</button></div>
                           </div>
                         )}
-                        {selectedContent === 'link' && (
+                        {selectedContent === 'url' && (
                           <div className="space-y-2">
-                            <input className="w-full rounded-xl bg-white/80 border border-white/60 px-3 py-2" value={linkUrl} onChange={(e) => setLinkUrl(e.target.value)} placeholder="Link URL" />
+                            <input className="w-full rounded-xl bg-white/80 border border-white/60 px-3 py-2" value={linkUrl} onChange={(e) => setLinkUrl(e.target.value)} placeholder="URL" />
                             <input className="w-full rounded-xl bg-white/80 border border-white/60 px-3 py-2" value={linkTitle} onChange={(e) => setLinkTitle(e.target.value)} placeholder="Link title (optional)" />
-                            <div className="flex justify-end"><button type="button" className="px-4 py-2 rounded-full border border-white/60 bg-white/80 hover:bg-white/95" onClick={addContentItem}>Add Link</button></div>
+                            <div className="flex justify-end"><button type="button" className="px-4 py-2 rounded-full border border-white/60 bg-white/80 hover:bg-white/95" onClick={addContentItem}>Add URL</button></div>
                           </div>
                         )}
-                        {selectedContent === 'scripture' && (
+                        {selectedContent === 'scriptures' && (
                           <div className="space-y-2">
                             <input className="w-full rounded-xl bg-white/80 border border-white/60 px-3 py-2" value={scriptureRef} onChange={(e) => setScriptureRef(e.target.value)} placeholder="Reference (e.g., Revelation 12:1-2)" />
                             <textarea className="w-full rounded-xl bg-white/80 border border-white/60 px-3 py-2" rows="2" value={scriptureText} onChange={(e) => setScriptureText(e.target.value)} placeholder="Passage text (optional)" />
-                            <div className="flex justify-end"><button type="button" className="px-4 py-2 rounded-full border border-white/60 bg-white/80 hover:bg-white/95" onClick={addContentItem}>Add Scripture</button></div>
+                            <div className="flex justify-end"><button type="button" className="px-4 py-2 rounded-full border border-white/60 bg-white/80 hover:bg-white/95" onClick={addContentItem}>Add Scriptures</button></div>
                           </div>
                         )}
                         {selectedContent === 'celestial' && (

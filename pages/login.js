@@ -98,47 +98,49 @@ export default function LoginPage() {
       <Head>
         <title>Login • Prophecy Claims</title>
       </Head>
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-[#1e3a5f] via-[#2c5f6f] to-[#87ceeb] p-6">
-        <div className="w-full max-w-xl bg-white/90 backdrop-blur rounded-2xl shadow-2xl border border-[#e3c292]/50 overflow-hidden">
-          <div className="bg-gradient-to-r from-[#e89547] to-[#f4d03f] text-[#1e3a5f] px-6 py-4 flex items-center justify-between">
-            <h1 className="font-display text-xl md:text-2xl font-bold">Welcome back</h1>
-            <div className="flex items-center gap-2 text-sm">
-              <button className={`px-3 py-1 rounded-full ${mode==='signin'?'bg-white/80':'bg-white/30'}`} onClick={() => setMode('signin')}>Sign in</button>
-              <button className={`px-3 py-1 rounded-full ${mode==='signup'?'bg-white/80':'bg-white/30'}`} onClick={() => setMode('signup')}>Create</button>
-              <button className={`px-3 py-1 rounded-full ${mode==='forgot'?'bg-white/80':'bg-white/30'}`} onClick={() => setMode('forgot')}>Forgot</button>
+      <div data-theme="prophecy" className="min-h-screen flex items-center justify-center bg-base-200 p-6">
+        <div className="w-full max-w-xl card bg-base-100 shadow-2xl border">
+          <div className="card-body p-0">
+            <div className="px-6 py-4 bg-gradient-to-r from-primary to-warning text-primary-content flex items-center justify-between">
+              <h1 className="font-display text-xl md:text-2xl font-bold">Welcome back</h1>
+              <div className="tabs tabs-boxed bg-white/20">
+                <a className={`tab ${mode==='signin'?'tab-active':''}`} onClick={() => setMode('signin')}>Sign in</a>
+                <a className={`tab ${mode==='signup'?'tab-active':''}`} onClick={() => setMode('signup')}>Create</a>
+                <a className={`tab ${mode==='forgot'?'tab-active':''}`} onClick={() => setMode('forgot')}>Forgot</a>
+              </div>
             </div>
-          </div>
 
-          <div className="p-6">
-            {mode === 'signin' && (
-              <form onSubmit={handleEmailPassword} className="space-y-4">
-                <input className="w-full border rounded-xl px-4 py-3" type="email" placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} />
-                <input className="w-full border rounded-xl px-4 py-3" type="password" placeholder="Password" value={password} onChange={(e) => setPassword(e.target.value)} />
-                <button className="prophecy-button w-full py-3 rounded-full" disabled={loading} type="submit">Sign in</button>
-                <div className="grid grid-cols-2 gap-3">
-                  <button type="button" className="prophecy-button-sm py-2 rounded-full" onClick={handleMagicLink} disabled={loading}>Magic link</button>
-                  <button type="button" className="prophecy-button-sm py-2 rounded-full" onClick={handleGoogle} disabled={loading}>Continue with Google</button>
-                </div>
-              </form>
-            )}
+            <div className="p-6 space-y-4">
+              {mode === 'signin' && (
+                <form onSubmit={handleEmailPassword} className="space-y-4">
+                  <input className="input input-bordered w-full" type="email" placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} />
+                  <input className="input input-bordered w-full" type="password" placeholder="Password" value={password} onChange={(e) => setPassword(e.target.value)} />
+                  <button className="btn btn-primary w-full" disabled={loading} type="submit">Sign in</button>
+                  <div className="grid grid-cols-2 gap-3">
+                    <button type="button" className="btn btn-outline" onClick={handleMagicLink} disabled={loading}>Magic link</button>
+                    <button type="button" className="btn btn-outline" onClick={handleGoogle} disabled={loading}>Google</button>
+                  </div>
+                </form>
+              )}
 
-            {mode === 'signup' && (
-              <form onSubmit={handleSignUp} className="space-y-4">
-                <input className="w-full border rounded-xl px-4 py-3" type="email" placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} />
-                <input className="w-full border rounded-xl px-4 py-3" type="password" placeholder="Password" value={password} onChange={(e) => setPassword(e.target.value)} />
-                <input className="w-full border rounded-xl px-4 py-3" type="password" placeholder="Confirm password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} />
-                <button className="prophecy-button w-full py-3 rounded-full" disabled={loading} type="submit">Create account</button>
-              </form>
-            )}
+              {mode === 'signup' && (
+                <form onSubmit={handleSignUp} className="space-y-4">
+                  <input className="input input-bordered w-full" type="email" placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} />
+                  <input className="input input-bordered w-full" type="password" placeholder="Password" value={password} onChange={(e) => setPassword(e.target.value)} />
+                  <input className="input input-bordered w-full" type="password" placeholder="Confirm password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} />
+                  <button className="btn btn-primary w-full" disabled={loading} type="submit">Create account</button>
+                </form>
+              )}
 
-            {mode === 'forgot' && (
-              <form onSubmit={handleForgot} className="space-y-4">
-                <input className="w-full border rounded-xl px-4 py-3" type="email" placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} />
-                <button className="prophecy-button w-full py-3 rounded-full" disabled={loading} type="submit">Send reset link</button>
-              </form>
-            )}
+              {mode === 'forgot' && (
+                <form onSubmit={handleForgot} className="space-y-4">
+                  <input className="input input-bordered w-full" type="email" placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} />
+                  <button className="btn btn-primary w-full" disabled={loading} type="submit">Send reset link</button>
+                </form>
+              )}
 
-            {status && <div className="mt-4 text-sm text-[#2c5f6f]">{status}</div>}
+              {status && <div className="alert alert-info text-sm"><span>{status}</span></div>}
+            </div>
           </div>
         </div>
       </div>

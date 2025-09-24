@@ -581,15 +581,15 @@ export default function DetailedTimeline({ timeline, submissions }) {
             <div className={`fixed inset-0 z-40 ${drawerOpen ? '' : 'pointer-events-none'}`}>
               {/* overlay backdrop to close on outside click */}
               <div className={`absolute inset-0 bg-black/30 transition-opacity ${drawerOpen ? 'opacity-100' : 'opacity-0'}`} onClick={closeDrawer} />
-              <div className={`absolute top-0 right-0 h-full w-[90%] sm:w-[480px] bg-white/95 border-l border-[#e3c292]/60 shadow-2xl transition-transform duration-300 ${drawerOpen ? 'translate-x-0' : 'translate-x-full'}`} role="dialog" aria-modal="true">
+              <div className={`absolute top-0 right-0 h-full w-[90%] sm:w-[480px] bg-base-100 border-l shadow-2xl transition-transform duration-300 ${drawerOpen ? 'translate-x-0' : 'translate-x-full'}`} role="dialog" aria-modal="true" data-theme="prophecy">
               <div className="h-full flex flex-col">
-                <div className="px-4 py-3 border-b border-[#e3c292]/60 flex items-center justify-between">
-                  <h2 className="text-lg font-semibold text-[#1e3a5f]">{viewerMode ? 'Details' : `Add ${itemType === 'event' ? 'Event' : 'Time Period'}`}</h2>
+                <div className="px-4 py-3 border-b flex items-center justify-between bg-gradient-to-r from-primary/10 to-warning/10">
+                  <h2 className="text-lg font-semibold">{viewerMode ? 'Details' : `Add ${itemType === 'event' ? 'Event' : 'Time Period'}`}</h2>
                   <div className="flex items-center gap-2">
                     {!viewerMode && (
-                      <button onClick={() => setStyleOpen((v) => !v)} title="Style" aria-label="Style" className={`w-9 h-9 rounded-full flex items-center justify-center border ${styleOpen ? 'bg-[#e3c292]/30 border-[#e3c292]' : 'bg-white/85 border-[#e3c292]/60 hover:bg-[#e3c292]/15'} text-[#1e3a5f]`}>🎨</button>
+                      <button onClick={() => setStyleOpen((v) => !v)} title="Style" aria-label="Style" className={`btn btn-sm btn-ghost ${styleOpen ? 'bg-primary/20' : ''}`}>🎨</button>
                     )}
-                    <button onClick={closeDrawer} className="text-[#1e3a5f] hover:opacity-70">✕</button>
+                    <button onClick={closeDrawer} className="btn btn-sm btn-ghost">✕</button>
                   </div>
                 </div>
                 <div className="p-0 overflow-auto">
@@ -660,7 +660,7 @@ export default function DetailedTimeline({ timeline, submissions }) {
                         {(contentItems || []).some((c) => (c.type||'').toLowerCase() === 'link') && (
                           <ul className="space-y-1">
                             {(contentItems || []).filter((c) => (c.type||'').toLowerCase() === 'link').map((ci, i) => (
-                              <li key={`lnk-${i}`}><a className="text-[#1e3a5f] underline" href={ci.content || '#'} target="_blank" rel="noreferrer">{ci.metadata?.title || ci.content}</a></li>
+                              <li key={`lnk-${i}`}><a className="link link-primary" href={ci.content || '#'} target="_blank" rel="noreferrer">{ci.metadata?.title || ci.content}</a></li>
                             ))}
                           </ul>
                         )}
@@ -669,9 +669,11 @@ export default function DetailedTimeline({ timeline, submissions }) {
                         {(contentItems || []).some((c) => (c.type||'').toLowerCase() === 'scripture') && (
                           <div className="space-y-2">
                             {(contentItems || []).filter((c) => (c.type||'').toLowerCase() === 'scripture').map((ci, i) => (
-                              <div key={`scr-${i}`} className="p-3 rounded-xl border bg-white/80 shadow-sm" style={{ borderColor: '#e3c292' }}>
-                                <div className="font-semibold text-[#1e3a5f]">{ci.content}</div>
-                                {ci.metadata?.text && <div className="text-[#2c5f6f] text-sm whitespace-pre-wrap">{ci.metadata.text}</div>}
+                              <div key={`scr-${i}`} className="card bg-base-100 shadow-sm border">
+                                <div className="card-body p-4">
+                                  <div className="font-semibold">{ci.content}</div>
+                                  {ci.metadata?.text && <div className="text-sm whitespace-pre-wrap">{ci.metadata.text}</div>}
+                                </div>
                               </div>
                             ))}
                           </div>
@@ -729,8 +731,7 @@ export default function DetailedTimeline({ timeline, submissions }) {
                               title={ct.label}
                               aria-label={ct.label}
                               onClick={() => setSelectedContent(ct.key)}
-                              className={`w-12 h-12 rounded-full flex items-center justify-center shadow-sm backdrop-blur-sm border transition-colors
-                                ${selectedContent === ct.key ? 'bg-[#e3c292]/30 border-[#e3c292] ring-2 ring-[#e3c292]/50' : 'bg-white/85 border-[#e3c292]/60 hover:bg-[#e3c292]/15'} text-[#1e3a5f]`}
+                              className={`btn btn-circle btn-sm ${selectedContent === ct.key ? 'btn-primary' : ''}`}
                             >
                               <span className="text-lg leading-none">{ct.icon}</span>
                             </button>
@@ -739,67 +740,67 @@ export default function DetailedTimeline({ timeline, submissions }) {
 
                         {selectedContent === 'text' && (
                           <div className="space-y-2">
-                            <textarea className="w-full border rounded px-3 py-2" rows="3" value={textContent} onChange={(e) => setTextContent(e.target.value)} placeholder="Enter text..." />
-                            <div className="flex justify-end"><button type="button" className="prophecy-button-sm px-4 py-2 rounded-full" onClick={addContentItem}>Add Text</button></div>
+                            <textarea className="textarea textarea-bordered w-full" rows="3" value={textContent} onChange={(e) => setTextContent(e.target.value)} placeholder="Enter text..." />
+                            <div className="flex justify-end"><button type="button" className="btn btn-outline" onClick={addContentItem}>Add Text</button></div>
                           </div>
                         )}
                         {selectedContent === 'image' && (
                           <div className="space-y-2">
-                            <input className="w-full border rounded px-3 py-2" value={imageUrl} onChange={(e) => setImageUrl(e.target.value)} placeholder="Image URL" />
-                            <div className="flex justify-end"><button type="button" className="prophecy-button-sm px-4 py-2 rounded-full" onClick={addContentItem}>Add Image</button></div>
+                            <input className="input input-bordered w-full" value={imageUrl} onChange={(e) => setImageUrl(e.target.value)} placeholder="Image URL" />
+                            <div className="flex justify-end"><button type="button" className="btn btn-outline" onClick={addContentItem}>Add Image</button></div>
                           </div>
                         )}
                         {selectedContent === 'video' && (
                           <div className="space-y-2">
-                            <input className="w-full border rounded px-3 py-2" value={videoUrl} onChange={(e) => setVideoUrl(e.target.value)} placeholder="Video URL" />
-                            <div className="flex justify-end"><button type="button" className="prophecy-button-sm px-4 py-2 rounded-full" onClick={addContentItem}>Add Video</button></div>
+                            <input className="input input-bordered w-full" value={videoUrl} onChange={(e) => setVideoUrl(e.target.value)} placeholder="Video URL" />
+                            <div className="flex justify-end"><button type="button" className="btn btn-outline" onClick={addContentItem}>Add Video</button></div>
                           </div>
                         )}
                         {selectedContent === 'audio' && (
                           <div className="space-y-2">
-                            <input className="w-full border rounded px-3 py-2" value={audioUrl} onChange={(e) => setAudioUrl(e.target.value)} placeholder="Audio URL" />
-                            <div className="flex justify-end"><button type="button" className="prophecy-button-sm px-4 py-2 rounded-full" onClick={addContentItem}>Add Audio</button></div>
+                            <input className="input input-bordered w-full" value={audioUrl} onChange={(e) => setAudioUrl(e.target.value)} placeholder="Audio URL" />
+                            <div className="flex justify-end"><button type="button" className="btn btn-outline" onClick={addContentItem}>Add Audio</button></div>
                           </div>
                         )}
                         {selectedContent === 'link' && (
                           <div className="space-y-2">
-                            <input className="w-full border rounded px-3 py-2" value={linkUrl} onChange={(e) => setLinkUrl(e.target.value)} placeholder="Link URL" />
-                            <input className="w-full border rounded px-3 py-2" value={linkTitle} onChange={(e) => setLinkTitle(e.target.value)} placeholder="Link title (optional)" />
-                            <div className="flex justify-end"><button type="button" className="prophecy-button-sm px-4 py-2 rounded-full" onClick={addContentItem}>Add Link</button></div>
+                            <input className="input input-bordered w-full" value={linkUrl} onChange={(e) => setLinkUrl(e.target.value)} placeholder="Link URL" />
+                            <input className="input input-bordered w-full" value={linkTitle} onChange={(e) => setLinkTitle(e.target.value)} placeholder="Link title (optional)" />
+                            <div className="flex justify-end"><button type="button" className="btn btn-outline" onClick={addContentItem}>Add Link</button></div>
                           </div>
                         )}
                         {selectedContent === 'scripture' && (
                           <div className="space-y-2">
-                            <input className="w-full border rounded px-3 py-2" value={scriptureRef} onChange={(e) => setScriptureRef(e.target.value)} placeholder="Reference (e.g., Revelation 12:1-2)" />
-                            <textarea className="w-full border rounded px-3 py-2" rows="2" value={scriptureText} onChange={(e) => setScriptureText(e.target.value)} placeholder="Passage text (optional)" />
-                            <div className="flex justify-end"><button type="button" className="prophecy-button-sm px-4 py-2 rounded-full" onClick={addContentItem}>Add Scripture</button></div>
+                            <input className="input input-bordered w-full" value={scriptureRef} onChange={(e) => setScriptureRef(e.target.value)} placeholder="Reference (e.g., Revelation 12:1-2)" />
+                            <textarea className="textarea textarea-bordered w-full" rows="2" value={scriptureText} onChange={(e) => setScriptureText(e.target.value)} placeholder="Passage text (optional)" />
+                            <div className="flex justify-end"><button type="button" className="btn btn-outline" onClick={addContentItem}>Add Scripture</button></div>
                           </div>
                         )}
                         {selectedContent === 'celestial' && (
                           <div className="space-y-2">
-                            <input className="w-full border rounded px-3 py-2" value={celestialEventType} onChange={(e) => setCelestialEventType(e.target.value)} placeholder="Event Type (alignment, conjunction, eclipse, etc.)" />
-                            <input className="w-full border rounded px-3 py-2" value={celestialBodies} onChange={(e) => setCelestialBodies(e.target.value)} placeholder="Bodies (Sun, Moon, planets, constellations)" />
-                            <input className="w-full border rounded px-3 py-2" value={celestialLocation} onChange={(e) => setCelestialLocation(e.target.value)} placeholder="Location / Visibility (optional)" />
-                            <textarea className="w-full border rounded px-3 py-2" rows="2" value={celestialNotes} onChange={(e) => setCelestialNotes(e.target.value)} placeholder="Description / Notes / Sources (optional)" />
-                            <div className="flex justify-end"><button type="button" className="prophecy-button-sm px-4 py-2 rounded-full" onClick={addContentItem}>Add Celestial</button></div>
+                            <input className="input input-bordered w-full" value={celestialEventType} onChange={(e) => setCelestialEventType(e.target.value)} placeholder="Event Type (alignment, conjunction, eclipse, etc.)" />
+                            <input className="input input-bordered w-full" value={celestialBodies} onChange={(e) => setCelestialBodies(e.target.value)} placeholder="Bodies (Sun, Moon, planets, constellations)" />
+                            <input className="input input-bordered w-full" value={celestialLocation} onChange={(e) => setCelestialLocation(e.target.value)} placeholder="Location / Visibility (optional)" />
+                            <textarea className="textarea textarea-bordered w-full" rows="2" value={celestialNotes} onChange={(e) => setCelestialNotes(e.target.value)} placeholder="Description / Notes / Sources (optional)" />
+                            <div className="flex justify-end"><button type="button" className="btn btn-outline" onClick={addContentItem}>Add Celestial</button></div>
                           </div>
                         )}
 
                         {contentItems.length > 0 && (
                           <div className="mt-3">
-                            <div className="text-sm text-[#2c5f6f] mb-1">Queued Content</div>
+                            <div className="text-sm mb-1">Queued Content</div>
                             <ul className="space-y-1">
                               {contentItems.map((ci, idx) => {
                                 const isImg = (ci.type || '').toLowerCase() === 'image';
                                 const srcCandidate = ci.file_path || ci.content;
                                 const thumb = isImg ? buildPublicUrl(srcCandidate) : null;
                                 return (
-                                  <li key={`${ci.type}-${idx}`} className="flex items-center justify-between text-sm bg-white/80 border border-[#e3c292]/60 rounded-xl px-3 py-2 shadow-sm">
+                                  <li key={`${ci.type}-${idx}`} className="flex items-center justify-between text-sm card bg-base-100 border px-3 py-2">
                                     <div className="flex items-center gap-2 min-w-0">
                                       {thumb && <img src={thumb} alt="thumb" className="w-10 h-10 rounded object-cover border" style={{ borderColor: '#e3c292' }} />}
                                       <span className="truncate">{ci.type}: {ci.content?.slice ? ci.content.slice(0, 64) : ''}</span>
                                     </div>
-                                    <button className="text-red-600 border border-red-300 rounded-full px-3 py-1 hover:bg-red-50" onClick={() => setContentItems((prev) => prev.filter((_, i) => i !== idx))}>Remove</button>
+                                    <button className="btn btn-xs btn-error" onClick={() => setContentItems((prev) => prev.filter((_, i) => i !== idx))}>Remove</button>
                                   </li>
                                 );
                               })}
@@ -811,12 +812,12 @@ export default function DetailedTimeline({ timeline, submissions }) {
                   )}
                 </div>
               {/* Style Section */}
-              <div className={`p-4 border-t border-[#e3c292]/60 space-y-3 ${styleOpen ? '' : 'hidden'}`}>
+              <div className={`p-4 border-t space-y-3 ${styleOpen ? '' : 'hidden'}`}>
                 <div className="text-[#1e3a5f] font-semibold">Style</div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm text-[#2c5f6f] mb-1">Item Style</label>
-                    <select className="w-full border rounded px-3 py-2" value={styleItemStyle} onChange={(e) => { setStyleItemStyle(e.target.value); }} onBlur={() => saveStyleToMetadata({ itemStyle: styleItemStyle })}>
+                    <select className="select select-bordered w-full" value={styleItemStyle} onChange={(e) => { setStyleItemStyle(e.target.value); }} onBlur={() => saveStyleToMetadata({ itemStyle: styleItemStyle })}>
                       {['card','marker','marker_text','chat_bubble','chat_square','text','circle'].map((v) => (
                         <option key={v} value={v}>{v}</option>
                       ))}
@@ -824,7 +825,7 @@ export default function DetailedTimeline({ timeline, submissions }) {
                   </div>
                   <div>
                     <label className="block text-sm text-[#2c5f6f] mb-1">Timeline Position</label>
-                    <select className="w-full border rounded px-3 py-2" value={styleTimelinePosition} onChange={(e) => { setStyleTimelinePosition(e.target.value); }} onBlur={() => saveStyleToMetadata({ timelinePosition: styleTimelinePosition })}>
+                    <select className="select select-bordered w-full" value={styleTimelinePosition} onChange={(e) => { setStyleTimelinePosition(e.target.value); }} onBlur={() => saveStyleToMetadata({ timelinePosition: styleTimelinePosition })}>
                       {['above','on','below'].map((v) => (
                         <option key={v} value={v}>{v}</option>
                       ))}
@@ -832,7 +833,7 @@ export default function DetailedTimeline({ timeline, submissions }) {
                   </div>
                   <div>
                     <label className="block text-sm text-[#2c5f6f] mb-1">Line Position</label>
-                    <select className="w-full border rounded px-3 py-2" value={styleLinePosition} onChange={(e) => { setStyleLinePosition(e.target.value); }} onBlur={() => saveStyleToMetadata({ linePosition: styleLinePosition })}>
+                    <select className="select select-bordered w-full" value={styleLinePosition} onChange={(e) => { setStyleLinePosition(e.target.value); }} onBlur={() => saveStyleToMetadata({ linePosition: styleLinePosition })}>
                       {['left','center','right'].map((v) => (
                         <option key={v} value={v}>{v}</option>
                       ))}
@@ -840,7 +841,7 @@ export default function DetailedTimeline({ timeline, submissions }) {
                   </div>
                   <div>
                     <label className="block text-sm text-[#2c5f6f] mb-1">Border Style</label>
-                    <select className="w-full border rounded px-3 py-2" value={styleBorderStyle} onChange={(e) => { setStyleBorderStyle(e.target.value); }} onBlur={() => saveStyleToMetadata({ borderStyle: styleBorderStyle })}>
+                    <select className="select select-bordered w-full" value={styleBorderStyle} onChange={(e) => { setStyleBorderStyle(e.target.value); }} onBlur={() => saveStyleToMetadata({ borderStyle: styleBorderStyle })}>
                       {['none','solid','dashed','dotted','drop_shadow','glow'].map((v) => (
                         <option key={v} value={v}>{v}</option>
                       ))}
@@ -850,29 +851,29 @@ export default function DetailedTimeline({ timeline, submissions }) {
                     <label className="block text-sm text-[#2c5f6f] mb-1">Background Color</label>
                     <div className="flex items-center gap-2">
                       <input type="color" className="w-10 h-10 border rounded" value={styleColorBackground || '#e89547'} onChange={(e) => setStyleColorBackground(e.target.value)} onBlur={() => saveStyleToMetadata({ background: styleColorBackground })} />
-                      <input className="flex-1 border rounded px-3 py-2" value={styleColorBackground} onChange={(e) => setStyleColorBackground(e.target.value)} onBlur={() => saveStyleToMetadata({ background: styleColorBackground })} placeholder="#e89547" />
+                      <input className="input input-bordered flex-1" value={styleColorBackground} onChange={(e) => setStyleColorBackground(e.target.value)} onBlur={() => saveStyleToMetadata({ background: styleColorBackground })} placeholder="#e89547" />
                     </div>
                   </div>
                   <div>
                     <label className="block text-sm text-[#2c5f6f] mb-1">Border Color</label>
                     <div className="flex items-center gap-2">
                       <input type="color" className="w-10 h-10 border rounded" value={styleColorBorder || '#e3c292'} onChange={(e) => setStyleColorBorder(e.target.value)} onBlur={() => saveStyleToMetadata({ border: styleColorBorder })} />
-                      <input className="flex-1 border rounded px-3 py-2" value={styleColorBorder} onChange={(e) => setStyleColorBorder(e.target.value)} onBlur={() => saveStyleToMetadata({ border: styleColorBorder })} placeholder="#e3c292" />
+                      <input className="input input-bordered flex-1" value={styleColorBorder} onChange={(e) => setStyleColorBorder(e.target.value)} onBlur={() => saveStyleToMetadata({ border: styleColorBorder })} placeholder="#e3c292" />
                     </div>
                   </div>
                   <div>
                     <label className="block text-sm text-[#2c5f6f] mb-1">Text Color</label>
                     <div className="flex items-center gap-2">
                       <input type="color" className="w-10 h-10 border rounded" value={styleColorText || '#1e3a5f'} onChange={(e) => setStyleColorText(e.target.value)} onBlur={() => saveStyleToMetadata({ text: styleColorText })} />
-                      <input className="flex-1 border rounded px-3 py-2" value={styleColorText} onChange={(e) => setStyleColorText(e.target.value)} onBlur={() => saveStyleToMetadata({ text: styleColorText })} placeholder="#1e3a5f" />
+                      <input className="input input-bordered flex-1" value={styleColorText} onChange={(e) => setStyleColorText(e.target.value)} onBlur={() => saveStyleToMetadata({ text: styleColorText })} placeholder="#1e3a5f" />
                     </div>
                   </div>
                 </div>
               </div>
               {!viewerMode && (
-                <div className="p-4 border-t border-[#e3c292]/60 flex justify-end gap-3">
-                  <button type="button" onClick={duplicateSubmission} className="px-4 py-2 rounded-full border border-[#e3c292]/60 bg-white hover:bg-[#e3c292]/20 text-[#1e3a5f]">Duplicate</button>
-                  <button type="button" onClick={deleteSubmission} className="px-4 py-2 rounded-full border border-red-300 text-white bg-red-600 hover:bg-red-500">Delete</button>
+                <div className="p-4 border-t flex justify-end gap-3">
+                  <button type="button" onClick={duplicateSubmission} className="btn">Duplicate</button>
+                  <button type="button" onClick={deleteSubmission} className="btn btn-error">Delete</button>
                 </div>
               )}
               </div>

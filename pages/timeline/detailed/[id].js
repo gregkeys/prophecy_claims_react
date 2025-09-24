@@ -581,21 +581,21 @@ export default function DetailedTimeline({ timeline, submissions }) {
             <div className={`fixed inset-0 z-40 ${drawerOpen ? '' : 'pointer-events-none'}`}>
               {/* overlay backdrop to close on outside click */}
               <div className={`absolute inset-0 bg-black/30 transition-opacity ${drawerOpen ? 'opacity-100' : 'opacity-0'}`} onClick={closeDrawer} />
-              <div className={`absolute top-0 right-0 h-full w-[90%] sm:w-[480px] bg-white border-l shadow-2xl transition-transform duration-300 ${drawerOpen ? 'translate-x-0' : 'translate-x-full'}`} role="dialog" aria-modal="true">
-              <div className="h-full flex flex-col">
-                <div className="px-4 py-3 border-b flex items-center justify-between bg-gradient-to-r from-primary/10 to-warning/10">
+              <div className={`absolute top-0 right-0 h-full w-[90%] sm:w-[500px] p-[1px] shadow-2xl transition-transform duration-300 ${drawerOpen ? 'translate-x-0' : 'translate-x-full'}`} role="dialog" aria-modal="true" style={{ background: 'linear-gradient(135deg, rgba(232,149,71,0.6), rgba(212,165,116,0.6))' }}>
+              <div className="h-full flex flex-col rounded-l-2xl bg-white/85 backdrop-blur-2xl border-l border-white/50">
+                <div className="px-4 py-3 border-b flex items-center justify-between" style={{ backgroundColor: '#fff9ef' }}>
                   <h2 className="text-lg font-semibold">{viewerMode ? 'Details' : `Add ${itemType === 'event' ? 'Event' : 'Time Period'}`}</h2>
                   <div className="flex items-center gap-2">
                     {!viewerMode && (
-                      <button onClick={() => setStyleOpen((v) => !v)} title="Style" aria-label="Style" className={`btn btn-sm btn-ghost ${styleOpen ? 'bg-primary/20' : ''}`}>🎨</button>
+                      <button onClick={() => setStyleOpen((v) => !v)} title="Style" aria-label="Style" className="px-3 py-1.5 rounded-full text-sm border border-white/60 bg-white/80 hover:bg-white/95 transition">🎨</button>
                     )}
-                    <button onClick={closeDrawer} className="btn btn-sm btn-ghost">✕</button>
+                    <button onClick={closeDrawer} className="px-3 py-1.5 rounded-full text-sm border border-white/60 bg-white/80 hover:bg-white/95 transition">✕</button>
                   </div>
                 </div>
                 <div className="p-0 overflow-auto">
                   {viewerMode ? (
-                    <div className="space-y-4">
-                      <div className="bg-gradient-to-r from-[#fff7e8] to-[#fff] px-5 py-4 border-b border-[#e3c292]/50">
+                    <div className="space-y-6">
+                      <div className="bg-gradient-to-r from-[#fff7e8] to-[#fff] px-5 py-5 border-b border-[#e3c292]/50">
                         <div className="font-display text-2xl md:text-3xl font-bold text-[#1e3a5f] break-words">{newTitle}</div>
                         <div className="mt-2 inline-flex items-center gap-2 text-xs px-3 py-1 rounded-full bg-[#e3c292]/20 text-[#1e3a5f] border border-[#e3c292]/60">
                           {itemType === 'event' ? (
@@ -610,27 +610,34 @@ export default function DetailedTimeline({ timeline, submissions }) {
                         {newDescription && <div className="mt-3 text-[#2c5f6f] whitespace-pre-wrap">{newDescription}</div>}
                       </div>
 
-                      <div className="px-5 pb-5 space-y-5">
-                        {/* Images */}
+                      <div className="px-5 pb-6 space-y-5">
                         {(contentItems || []).some((c) => (c.type||'').toLowerCase() === 'image') && (
                           <div>
-                            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                            {(contentItems || []).filter((c) => (c.type||'').toLowerCase() === 'image').map((ci, i) => {
-                              const src = buildPublicUrl(ci.file_path || ci.content);
-                              return (
-                                <button key={`img-${i}`} className="group relative" onClick={() => { setLightboxIndex(i); setLightboxOpen(true); }}>
-                                  <img src={src} alt="image" className="w-full h-28 sm:h-32 object-cover rounded-xl border shadow-sm" style={{ borderColor: '#e3c292' }} />
-                                  <div className="absolute inset-0 rounded-xl bg-black/0 group-hover:bg-black/15 transition-colors" />
-                                </button>
-                              );
-                            })}
+                            <div className="flex items-center justify-between mb-2">
+                              <h3 className="text-sm font-semibold text-[#1e3a5f] tracking-wide">Images</h3>
+                              <div className="h-px flex-1 bg-[#e3c292]/50 ml-4"></div>
+                            </div>
+                            <div className="[column-count:2] sm:[column-count:3] [column-gap:12px]">
+                              {(contentItems || []).filter((c) => (c.type||'').toLowerCase() === 'image').map((ci, i) => {
+                                const src = buildPublicUrl(ci.file_path || ci.content);
+                                return (
+                                  <button key={`img-${i}`} className="group relative mb-3 w-full break-inside-avoid" onClick={() => { setLightboxIndex(i); setLightboxOpen(true); }}>
+                                    <img src={src} alt="image" className="w-full rounded-xl border shadow-sm" style={{ borderColor: '#e3c292' }} />
+                                    <div className="absolute inset-0 rounded-xl bg-black/0 group-hover:bg-black/10 transition-colors" />
+                                  </button>
+                                );
+                              })}
                             </div>
                           </div>
                         )}
 
-                        {/* Videos */}
                         {(contentItems || []).some((c) => (c.type||'').toLowerCase() === 'video') && (
-                          <div className="space-y-3">
+                          <div>
+                            <div className="flex items-center justify-between mb-2">
+                              <h3 className="text-sm font-semibold text-[#1e3a5f] tracking-wide">Videos</h3>
+                              <div className="h-px flex-1 bg-[#e3c292]/50 ml-4"></div>
+                            </div>
+                            <div className="space-y-3">
                             {(contentItems || []).filter((c) => (c.type||'').toLowerCase() === 'video').map((ci, i) => {
                               const url = ci.content || '';
                               const isYouTube = /youtu\.be|youtube\.com/.test(url);
@@ -644,12 +651,17 @@ export default function DetailedTimeline({ timeline, submissions }) {
                                 </div>
                               );
                             })}
+                            </div>
                           </div>
                         )}
 
                         {/* Audio */}
                         {(contentItems || []).some((c) => (c.type||'').toLowerCase() === 'audio') && (
                           <div className="space-y-2">
+                            <div className="flex items-center justify-between mb-1">
+                              <h3 className="text-sm font-semibold text-[#1e3a5f] tracking-wide">Audio</h3>
+                              <div className="h-px flex-1 bg-[#e3c292]/50 ml-4"></div>
+                            </div>
                             {(contentItems || []).filter((c) => (c.type||'').toLowerCase() === 'audio').map((ci, i) => (
                               <audio key={`aud-${i}`} className="w-full" src={ci.content || ''} controls preload="metadata" />
                             ))}
@@ -659,8 +671,12 @@ export default function DetailedTimeline({ timeline, submissions }) {
                         {/* Links */}
                         {(contentItems || []).some((c) => (c.type||'').toLowerCase() === 'link') && (
                           <ul className="space-y-1">
+                            <div className="flex items-center justify-between mb-1">
+                              <h3 className="text-sm font-semibold text-[#1e3a5f] tracking-wide">Links</h3>
+                              <div className="h-px flex-1 bg-[#e3c292]/50 ml-4"></div>
+                            </div>
                             {(contentItems || []).filter((c) => (c.type||'').toLowerCase() === 'link').map((ci, i) => (
-                              <li key={`lnk-${i}`}><a className="link link-primary" href={ci.content || '#'} target="_blank" rel="noreferrer">{ci.metadata?.title || ci.content}</a></li>
+                              <li key={`lnk-${i}`}> <a className="text-[#1e3a5f] underline hover:text-[#d4a574]" href={ci.content || '#'} target="_blank" rel="noreferrer">{ci.metadata?.title || ci.content}</a></li>
                             ))}
                           </ul>
                         )}
@@ -668,6 +684,10 @@ export default function DetailedTimeline({ timeline, submissions }) {
                         {/* Scripture */}
                         {(contentItems || []).some((c) => (c.type||'').toLowerCase() === 'scripture') && (
                           <div className="space-y-2">
+                            <div className="flex items-center justify-between mb-1">
+                              <h3 className="text-sm font-semibold text-[#1e3a5f] tracking-wide">Scripture</h3>
+                              <div className="h-px flex-1 bg-[#e3c292]/50 ml-4"></div>
+                            </div>
                             {(contentItems || []).filter((c) => (c.type||'').toLowerCase() === 'scripture').map((ci, i) => (
                               <div key={`scr-${i}`} className="bg-white shadow-sm border rounded-lg">
                                 <div className="card-body p-4">
@@ -731,7 +751,7 @@ export default function DetailedTimeline({ timeline, submissions }) {
                               title={ct.label}
                               aria-label={ct.label}
                               onClick={() => setSelectedContent(ct.key)}
-                              className={`btn btn-circle btn-sm ${selectedContent === ct.key ? 'btn-primary' : ''}`}
+                              className={`w-8 h-8 rounded-full border text-sm flex items-center justify-center ${selectedContent === ct.key ? 'bg-[#e89547] text-white border-[#d4a574]' : 'bg-white/80 border-white/60 hover:bg-white/95'}`}
                             >
                               <span className="text-lg leading-none">{ct.icon}</span>
                             </button>
@@ -740,49 +760,49 @@ export default function DetailedTimeline({ timeline, submissions }) {
 
                         {selectedContent === 'text' && (
                           <div className="space-y-2">
-                            <textarea className="textarea textarea-bordered w-full" rows="3" value={textContent} onChange={(e) => setTextContent(e.target.value)} placeholder="Enter text..." />
-                            <div className="flex justify-end"><button type="button" className="btn btn-outline" onClick={addContentItem}>Add Text</button></div>
+                            <textarea className="w-full rounded-xl bg-white/80 border border-white/60 px-3 py-2" rows="3" value={textContent} onChange={(e) => setTextContent(e.target.value)} placeholder="Enter text..." />
+                            <div className="flex justify-end"><button type="button" className="px-4 py-2 rounded-full border border-white/60 bg-white/80 hover:bg-white/95" onClick={addContentItem}>Add Text</button></div>
                           </div>
                         )}
                         {selectedContent === 'image' && (
                           <div className="space-y-2">
-                            <input className="input input-bordered w-full" value={imageUrl} onChange={(e) => setImageUrl(e.target.value)} placeholder="Image URL" />
-                            <div className="flex justify-end"><button type="button" className="btn btn-outline" onClick={addContentItem}>Add Image</button></div>
+                            <input className="w-full rounded-xl bg-white/80 border border-white/60 px-3 py-2" value={imageUrl} onChange={(e) => setImageUrl(e.target.value)} placeholder="Image URL" />
+                            <div className="flex justify-end"><button type="button" className="px-4 py-2 rounded-full border border-white/60 bg-white/80 hover:bg-white/95" onClick={addContentItem}>Add Image</button></div>
                           </div>
                         )}
                         {selectedContent === 'video' && (
                           <div className="space-y-2">
-                            <input className="input input-bordered w-full" value={videoUrl} onChange={(e) => setVideoUrl(e.target.value)} placeholder="Video URL" />
-                            <div className="flex justify-end"><button type="button" className="btn btn-outline" onClick={addContentItem}>Add Video</button></div>
+                            <input className="w-full rounded-xl bg-white/80 border border-white/60 px-3 py-2" value={videoUrl} onChange={(e) => setVideoUrl(e.target.value)} placeholder="Video URL" />
+                            <div className="flex justify-end"><button type="button" className="px-4 py-2 rounded-full border border-white/60 bg-white/80 hover:bg-white/95" onClick={addContentItem}>Add Video</button></div>
                           </div>
                         )}
                         {selectedContent === 'audio' && (
                           <div className="space-y-2">
-                            <input className="input input-bordered w-full" value={audioUrl} onChange={(e) => setAudioUrl(e.target.value)} placeholder="Audio URL" />
-                            <div className="flex justify-end"><button type="button" className="btn btn-outline" onClick={addContentItem}>Add Audio</button></div>
+                            <input className="w-full rounded-xl bg-white/80 border border-white/60 px-3 py-2" value={audioUrl} onChange={(e) => setAudioUrl(e.target.value)} placeholder="Audio URL" />
+                            <div className="flex justify-end"><button type="button" className="px-4 py-2 rounded-full border border-white/60 bg-white/80 hover:bg-white/95" onClick={addContentItem}>Add Audio</button></div>
                           </div>
                         )}
                         {selectedContent === 'link' && (
                           <div className="space-y-2">
-                            <input className="input input-bordered w-full" value={linkUrl} onChange={(e) => setLinkUrl(e.target.value)} placeholder="Link URL" />
-                            <input className="input input-bordered w-full" value={linkTitle} onChange={(e) => setLinkTitle(e.target.value)} placeholder="Link title (optional)" />
-                            <div className="flex justify-end"><button type="button" className="btn btn-outline" onClick={addContentItem}>Add Link</button></div>
+                            <input className="w-full rounded-xl bg-white/80 border border-white/60 px-3 py-2" value={linkUrl} onChange={(e) => setLinkUrl(e.target.value)} placeholder="Link URL" />
+                            <input className="w-full rounded-xl bg-white/80 border border-white/60 px-3 py-2" value={linkTitle} onChange={(e) => setLinkTitle(e.target.value)} placeholder="Link title (optional)" />
+                            <div className="flex justify-end"><button type="button" className="px-4 py-2 rounded-full border border-white/60 bg-white/80 hover:bg-white/95" onClick={addContentItem}>Add Link</button></div>
                           </div>
                         )}
                         {selectedContent === 'scripture' && (
                           <div className="space-y-2">
-                            <input className="input input-bordered w-full" value={scriptureRef} onChange={(e) => setScriptureRef(e.target.value)} placeholder="Reference (e.g., Revelation 12:1-2)" />
-                            <textarea className="textarea textarea-bordered w-full" rows="2" value={scriptureText} onChange={(e) => setScriptureText(e.target.value)} placeholder="Passage text (optional)" />
-                            <div className="flex justify-end"><button type="button" className="btn btn-outline" onClick={addContentItem}>Add Scripture</button></div>
+                            <input className="w-full rounded-xl bg-white/80 border border-white/60 px-3 py-2" value={scriptureRef} onChange={(e) => setScriptureRef(e.target.value)} placeholder="Reference (e.g., Revelation 12:1-2)" />
+                            <textarea className="w-full rounded-xl bg-white/80 border border-white/60 px-3 py-2" rows="2" value={scriptureText} onChange={(e) => setScriptureText(e.target.value)} placeholder="Passage text (optional)" />
+                            <div className="flex justify-end"><button type="button" className="px-4 py-2 rounded-full border border-white/60 bg-white/80 hover:bg-white/95" onClick={addContentItem}>Add Scripture</button></div>
                           </div>
                         )}
                         {selectedContent === 'celestial' && (
                           <div className="space-y-2">
-                            <input className="input input-bordered w-full" value={celestialEventType} onChange={(e) => setCelestialEventType(e.target.value)} placeholder="Event Type (alignment, conjunction, eclipse, etc.)" />
-                            <input className="input input-bordered w-full" value={celestialBodies} onChange={(e) => setCelestialBodies(e.target.value)} placeholder="Bodies (Sun, Moon, planets, constellations)" />
-                            <input className="input input-bordered w-full" value={celestialLocation} onChange={(e) => setCelestialLocation(e.target.value)} placeholder="Location / Visibility (optional)" />
-                            <textarea className="textarea textarea-bordered w-full" rows="2" value={celestialNotes} onChange={(e) => setCelestialNotes(e.target.value)} placeholder="Description / Notes / Sources (optional)" />
-                            <div className="flex justify-end"><button type="button" className="btn btn-outline" onClick={addContentItem}>Add Celestial</button></div>
+                            <input className="w-full rounded-xl bg-white/80 border border-white/60 px-3 py-2" value={celestialEventType} onChange={(e) => setCelestialEventType(e.target.value)} placeholder="Event Type (alignment, conjunction, eclipse, etc.)" />
+                            <input className="w-full rounded-xl bg-white/80 border border-white/60 px-3 py-2" value={celestialBodies} onChange={(e) => setCelestialBodies(e.target.value)} placeholder="Bodies (Sun, Moon, planets, constellations)" />
+                            <input className="w-full rounded-xl bg-white/80 border border-white/60 px-3 py-2" value={celestialLocation} onChange={(e) => setCelestialLocation(e.target.value)} placeholder="Location / Visibility (optional)" />
+                            <textarea className="w-full rounded-xl bg-white/80 border border-white/60 px-3 py-2" rows="2" value={celestialNotes} onChange={(e) => setCelestialNotes(e.target.value)} placeholder="Description / Notes / Sources (optional)" />
+                            <div className="flex justify-end"><button type="button" className="px-4 py-2 rounded-full border border-white/60 bg-white/80 hover:bg-white/95" onClick={addContentItem}>Add Celestial</button></div>
                           </div>
                         )}
 
@@ -817,7 +837,7 @@ export default function DetailedTimeline({ timeline, submissions }) {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm text-[#2c5f6f] mb-1">Item Style</label>
-                    <select className="select select-bordered w-full" value={styleItemStyle} onChange={(e) => { setStyleItemStyle(e.target.value); }} onBlur={() => saveStyleToMetadata({ itemStyle: styleItemStyle })}>
+                    <select className="w-full rounded-xl bg-white/80 border border-white/60 px-3 py-2" value={styleItemStyle} onChange={(e) => { setStyleItemStyle(e.target.value); }} onBlur={() => saveStyleToMetadata({ itemStyle: styleItemStyle })}>
                       {['card','marker','marker_text','chat_bubble','chat_square','text','circle'].map((v) => (
                         <option key={v} value={v}>{v}</option>
                       ))}
@@ -825,7 +845,7 @@ export default function DetailedTimeline({ timeline, submissions }) {
                   </div>
                   <div>
                     <label className="block text-sm text-[#2c5f6f] mb-1">Timeline Position</label>
-                    <select className="select select-bordered w-full" value={styleTimelinePosition} onChange={(e) => { setStyleTimelinePosition(e.target.value); }} onBlur={() => saveStyleToMetadata({ timelinePosition: styleTimelinePosition })}>
+                    <select className="w-full rounded-xl bg-white/80 border border-white/60 px-3 py-2" value={styleTimelinePosition} onChange={(e) => { setStyleTimelinePosition(e.target.value); }} onBlur={() => saveStyleToMetadata({ timelinePosition: styleTimelinePosition })}>
                       {['above','on','below'].map((v) => (
                         <option key={v} value={v}>{v}</option>
                       ))}
@@ -833,7 +853,7 @@ export default function DetailedTimeline({ timeline, submissions }) {
                   </div>
                   <div>
                     <label className="block text-sm text-[#2c5f6f] mb-1">Line Position</label>
-                    <select className="select select-bordered w-full" value={styleLinePosition} onChange={(e) => { setStyleLinePosition(e.target.value); }} onBlur={() => saveStyleToMetadata({ linePosition: styleLinePosition })}>
+                    <select className="w-full rounded-xl bg-white/80 border border-white/60 px-3 py-2" value={styleLinePosition} onChange={(e) => { setStyleLinePosition(e.target.value); }} onBlur={() => saveStyleToMetadata({ linePosition: styleLinePosition })}>
                       {['left','center','right'].map((v) => (
                         <option key={v} value={v}>{v}</option>
                       ))}
@@ -841,7 +861,7 @@ export default function DetailedTimeline({ timeline, submissions }) {
                   </div>
                   <div>
                     <label className="block text-sm text-[#2c5f6f] mb-1">Border Style</label>
-                    <select className="select select-bordered w-full" value={styleBorderStyle} onChange={(e) => { setStyleBorderStyle(e.target.value); }} onBlur={() => saveStyleToMetadata({ borderStyle: styleBorderStyle })}>
+                    <select className="w-full rounded-xl bg-white/80 border border-white/60 px-3 py-2" value={styleBorderStyle} onChange={(e) => { setStyleBorderStyle(e.target.value); }} onBlur={() => saveStyleToMetadata({ borderStyle: styleBorderStyle })}>
                       {['none','solid','dashed','dotted','drop_shadow','glow'].map((v) => (
                         <option key={v} value={v}>{v}</option>
                       ))}
@@ -872,8 +892,8 @@ export default function DetailedTimeline({ timeline, submissions }) {
               </div>
               {!viewerMode && (
                 <div className="p-4 border-t flex justify-end gap-3">
-                  <button type="button" onClick={duplicateSubmission} className="btn">Duplicate</button>
-                  <button type="button" onClick={deleteSubmission} className="btn btn-error">Delete</button>
+                  <button type="button" onClick={duplicateSubmission} className="px-4 py-2 rounded-full border border-white/60 bg-white/80 hover:bg-white/95">Duplicate</button>
+                  <button type="button" onClick={deleteSubmission} className="px-4 py-2 rounded-full bg-red-600 text-white hover:bg-red-700">Delete</button>
                 </div>
               )}
               </div>
@@ -1020,15 +1040,27 @@ function Lightbox({ items, index, onClose, onPrev, onNext, buildPublicUrl }) {
   const isVideo = (current?.type || '').toLowerCase() === 'video';
   const src = current ? (isImage ? buildPublicUrl(current.file_path || current.content) : (current.content || '')) : '';
 
+  // Keyboard navigation
+  if (typeof window !== 'undefined') {
+    window.onkeydown = (e) => {
+      if (e.key === 'Escape') { e.preventDefault(); onClose(); }
+      if (e.key === 'ArrowLeft') { e.preventDefault(); onPrev(); }
+      if (e.key === 'ArrowRight') { e.preventDefault(); onNext(); }
+    };
+  }
+
   return (
     <div className="fixed inset-0 z-50">
       <div className="absolute inset-0 bg-black/70" onClick={onClose} />
       <div className="absolute inset-0 flex items-center justify-center p-4">
         <div className="relative max-w-5xl w-full bg-white/95 rounded-2xl shadow-2xl border border-[#e3c292]/60 overflow-hidden">
-          <div className="flex items-center justify-between px-4 py-2 border-b border-[#e3c292]/60 bg-[#fff9ef]">
-            <button className="px-3 py-1 rounded-full border border-[#e3c292]/60 bg-white hover:bg-[#fff6ee]" onClick={onPrev} aria-label="Previous">⟨</button>
-            <button className="px-3 py-1 rounded-full border border-[#e3c292]/60 bg-white hover:bg-[#fff6ee]" onClick={onNext} aria-label="Next">⟩</button>
-            <button className="px-3 py-1 rounded-full border border-[#e3c292]/60 bg-white hover:bg-[#fff6ee]" onClick={onClose} aria-label="Close">✕</button>
+          <div className="flex items-center justify-between px-4 py-2 border-b border-[#e3c292]/60" style={{ backgroundColor: '#fff9ef' }}>
+            <div className="text-xs text-[#2c5f6f]">{index + 1} / {safeItems.length}</div>
+            <div className="flex items-center gap-2">
+              <button className="px-3 py-1 rounded-full border border-[#e3c292]/60 bg-white hover:bg-[#fff6ee]" onClick={onPrev} aria-label="Previous">⟨</button>
+              <button className="px-3 py-1 rounded-full border border-[#e3c292]/60 bg-white hover:bg-[#fff6ee]" onClick={onNext} aria-label="Next">⟩</button>
+              <button className="px-3 py-1 rounded-full border border-[#e3c292]/60 bg-white hover:bg-[#fff6ee]" onClick={onClose} aria-label="Close">✕</button>
+            </div>
           </div>
           <div className="p-2 sm:p-4">
             {isImage && (

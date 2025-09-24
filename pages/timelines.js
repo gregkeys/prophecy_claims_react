@@ -25,10 +25,8 @@ const supabase = getSupabaseClient();
 
 export default function Timelines({ timelines }) {
   const [isVisible, setIsVisible] = useState(false);
-  const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
-    setMounted(true);
     setIsVisible(true);
   }, []);
 
@@ -65,7 +63,7 @@ export default function Timelines({ timelines }) {
 
           {/* Timeline Cards Grid */}
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8 max-w-6xl mx-auto">
-            {mounted && timelines.map((timeline, index) => (
+            {timelines.map((timeline, index) => (
               <TimelineCard 
                 key={timeline.id} 
                 timeline={timeline} 
@@ -81,8 +79,7 @@ export default function Timelines({ timelines }) {
 
 function TimelineCard({ timeline, index }) {
   return (
-    <Link href={`/timeline/detailed/${timeline.id}`} className={`prophecy-card cursor-pointer transform hover:scale-105 transition-all duration-300 animate-fade-in-up flex flex-col h-full`}
-      style={{ animationDelay: `${index * 0.1}s` }}>
+    <Link href={`/timeline/detailed/${timeline.id}`} className={`prophecy-card cursor-pointer transform hover:scale-105 transition-all duration-300 flex flex-col h-full`}>
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center space-x-2">
           <div className="w-3 h-3 bg-gradient-to-r from-[#d4a574] to-[#f4d03f] rounded-full"></div>

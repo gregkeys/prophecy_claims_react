@@ -93,7 +93,7 @@ export default function TimelineDetail({ timeline, submissions }) {
   return (
     <>
       <Head>
-        <title>{timeline.name} - Divine Timeline | Prophecy Claims</title>
+        <title>{`${String(timeline?.name ?? '')} - Divine Timeline | Prophecy Claims`}</title>
         <meta name="description" content={timeline.description || `Explore the ${timeline.name} prophetic timeline revealing divine truth.`} />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <link rel="icon" href="/favicon.ico" />

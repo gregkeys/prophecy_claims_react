@@ -38,7 +38,7 @@ export default function Timeline3D({ timeline, submissions }) {
   return (
     <>
       <Head>
-        <title>3D View - {timeline.name} | Prophecy Claims</title>
+        <title>{`3D View - ${String(timeline?.name ?? '')} | Prophecy Claims`}</title>
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <link rel="icon" href="/favicon.ico" />
       </Head>

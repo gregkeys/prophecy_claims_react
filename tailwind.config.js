@@ -57,25 +57,5 @@ module.exports = {
       },
     },
   },
-  plugins: [require('daisyui')],
-  daisyui: {
-    themes: [
-      {
-        prophecy: {
-          'primary': '#d4a574',
-          'primary-content': '#1e3a5f',
-          'secondary': '#2c5f6f',
-          'accent': '#e89547',
-          'neutral': '#1f2937',
-          'base-100': '#faf6f0',
-          'info': '#87ceeb',
-          'success': '#22c55e',
-          'warning': '#f4d03f',
-          'error': '#ef4444'
-        }
-      },
-      'luxury'
-    ],
-    darkTheme: 'luxury'
-  }
-}
+  plugins: [],
+};

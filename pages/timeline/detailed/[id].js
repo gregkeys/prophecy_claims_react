@@ -528,12 +528,12 @@ export default function DetailedTimeline({ timeline, submissions }) {
   return (
     <>
       <Head>
-        <title>{timeline.name} - Detailed Timeline | Prophecy Claims</title>
+        <title>{`${String(timeline?.name ?? '')} - Detailed Timeline | Prophecy Claims`}</title>
         <meta name="description" content={timeline.description || `Explore the ${timeline.name} detailed infinite timeline.`} />
       </Head>
       {/* Global header provided by _app.js */}
 
-      <section className="pt-8 pb-2 bg-[#faf6f0] min-h-screen">
+      <section className="pt-8 pb-2 min-h-screen" style={{ backgroundColor: 'var(--prophecy-cream)' }}>
         <div className="w-full px-0">
           <div ref={titleRef} className="mb-1 px-4 sm:px-6 lg:px-12">
             <div className="flex items-center justify-center gap-3 flex-wrap">
@@ -581,7 +581,7 @@ export default function DetailedTimeline({ timeline, submissions }) {
             <div className={`fixed inset-0 z-40 ${drawerOpen ? '' : 'pointer-events-none'}`}>
               {/* overlay backdrop to close on outside click */}
               <div className={`absolute inset-0 bg-black/30 transition-opacity ${drawerOpen ? 'opacity-100' : 'opacity-0'}`} onClick={closeDrawer} />
-              <div className={`absolute top-0 right-0 h-full w-[90%] sm:w-[480px] bg-base-100 border-l shadow-2xl transition-transform duration-300 ${drawerOpen ? 'translate-x-0' : 'translate-x-full'}`} role="dialog" aria-modal="true" data-theme="prophecy">
+              <div className={`absolute top-0 right-0 h-full w-[90%] sm:w-[480px] bg-white border-l shadow-2xl transition-transform duration-300 ${drawerOpen ? 'translate-x-0' : 'translate-x-full'}`} role="dialog" aria-modal="true">
               <div className="h-full flex flex-col">
                 <div className="px-4 py-3 border-b flex items-center justify-between bg-gradient-to-r from-primary/10 to-warning/10">
                   <h2 className="text-lg font-semibold">{viewerMode ? 'Details' : `Add ${itemType === 'event' ? 'Event' : 'Time Period'}`}</h2>
@@ -669,7 +669,7 @@ export default function DetailedTimeline({ timeline, submissions }) {
                         {(contentItems || []).some((c) => (c.type||'').toLowerCase() === 'scripture') && (
                           <div className="space-y-2">
                             {(contentItems || []).filter((c) => (c.type||'').toLowerCase() === 'scripture').map((ci, i) => (
-                              <div key={`scr-${i}`} className="card bg-base-100 shadow-sm border">
+                              <div key={`scr-${i}`} className="bg-white shadow-sm border rounded-lg">
                                 <div className="card-body p-4">
                                   <div className="font-semibold">{ci.content}</div>
                                   {ci.metadata?.text && <div className="text-sm whitespace-pre-wrap">{ci.metadata.text}</div>}
@@ -795,7 +795,7 @@ export default function DetailedTimeline({ timeline, submissions }) {
                                 const srcCandidate = ci.file_path || ci.content;
                                 const thumb = isImg ? buildPublicUrl(srcCandidate) : null;
                                 return (
-                                  <li key={`${ci.type}-${idx}`} className="flex items-center justify-between text-sm card bg-base-100 border px-3 py-2">
+                                  <li key={`${ci.type}-${idx}`} className="flex items-center justify-between text-sm bg-white border rounded px-3 py-2">
                                     <div className="flex items-center gap-2 min-w-0">
                                       {thumb && <img src={thumb} alt="thumb" className="w-10 h-10 rounded object-cover border" style={{ borderColor: '#e3c292' }} />}
                                       <span className="truncate">{ci.type}: {ci.content?.slice ? ci.content.slice(0, 64) : ''}</span>

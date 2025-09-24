@@ -282,6 +282,12 @@ export default function InfiniteTimeline({ submissions = [], height = '70vh', ca
     });
   }, [overlayBuckets, containerWidth]);
 
+  // Lazy render overlay cards: only those in or near viewport
+  const visibleCards = useMemo(() => {
+    const buffer = 200; // px on each side
+    return layoutCards.filter((lc) => lc.right > -buffer && lc.left < (containerWidth + buffer));
+  }, [layoutCards, containerWidth]);
+
   // Ticks based on msPerPx (supports year → month → day → hour)
   const tickSpec = useMemo(() => {
     const hour = 60 * 60 * 1000;
@@ -453,6 +459,18 @@ export default function InfiniteTimeline({ submissions = [], height = '70vh', ca
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
+    // Resolve CSS variable colors for current theme
+    const getCssVar = (name, fallback) => {
+      try {
+        const v = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+        return v || fallback;
+      } catch (_) { return fallback; }
+    };
+    const COLOR_BG = getCssVar('--bg', '#faf6f0');
+    const COLOR_TEXT = getCssVar('--text', '#1e3a5f');
+    const COLOR_BORDER = getCssVar('--border', '#e3c292');
+    const COLOR_SURFACE = getCssVar('--surface', '#ffffff');
+
     const width = Math.max(600, containerWidth || canvas.parentElement?.offsetWidth || 1200);
     const heightPx = typeof height === 'string' && height.endsWith('vh')
       ? Math.max(260, Math.floor((parseFloat(height) / 100) * (window.innerHeight || 800)))
@@ -469,16 +487,16 @@ export default function InfiniteTimeline({ submissions = [], height = '70vh', ca
     tickPositionsRef.current = [];
 
     // Background
-    ctx.fillStyle = '#faf6f0';
+    ctx.fillStyle = COLOR_BG;
     ctx.fillRect(0, 0, width, heightPx);
     // Optional border (subtle)
-    ctx.strokeStyle = 'rgba(212,165,116,0.2)';
+    ctx.strokeStyle = COLOR_BORDER + '33';
     ctx.lineWidth = 1;
     ctx.strokeRect(0.5, 0.5, width - 1, heightPx - 1);
 
     // Midline (high contrast)
     const midY = Math.round(heightPx / 2);
-    ctx.strokeStyle = '#1e3a5f';
+    ctx.strokeStyle = COLOR_TEXT;
     ctx.lineWidth = 8; // even thicker baseline for stronger visual weight
     ctx.beginPath();
     ctx.moveTo(0, midY);
@@ -518,8 +536,8 @@ export default function InfiniteTimeline({ submissions = [], height = '70vh', ca
       const d = new Date(tStart);
       first = Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), 1);
     }
-    ctx.fillStyle = '#2c5f6f';
-    ctx.strokeStyle = 'rgba(30,58,95,0.45)';
+    ctx.fillStyle = COLOR_TEXT;
+    ctx.strokeStyle = COLOR_TEXT + '73';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'top';
     ctx.font = '12px ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto';
@@ -564,7 +582,7 @@ export default function InfiniteTimeline({ submissions = [], height = '70vh', ca
         const x = timeToX(ts, width);
         // node
         ctx.save();
-        ctx.fillStyle = '#1e3a5f';
+        ctx.fillStyle = COLOR_TEXT;
         ctx.beginPath();
         ctx.arc(x, midY, 9, 0, Math.PI * 2);
         ctx.fill();
@@ -577,10 +595,10 @@ export default function InfiniteTimeline({ submissions = [], height = '70vh', ca
         const tw = Math.ceil(ctx.measureText(yearText).width);
         const rx = x - (tw / 2) - padX;
         const ry = midY + 18;
-        ctx.fillStyle = 'rgba(250,246,240,0.85)';
+        ctx.fillStyle = COLOR_SURFACE;
         drawRoundedRect(ctx, rx, ry, tw + padX * 2, 20, 6);
         ctx.fill();
-        ctx.fillStyle = '#1e3a5f';
+        ctx.fillStyle = COLOR_TEXT;
         ctx.fillText(yearText, x, ry + padY);
         ctx.restore();
         // store for hover
@@ -630,7 +648,7 @@ export default function InfiniteTimeline({ submissions = [], height = '70vh', ca
       const rightStartOffsetMs = msPerPx * (gapShiftPx + gapHalfPx); // start bracket this far right of month start
       
       ctx.save();
-      ctx.strokeStyle = '#c37a45';
+      ctx.strokeStyle = getCssVar('--prophecy-orange', '#c37a45');
       ctx.lineWidth = 2;
       ctx.lineCap = 'round';
       // Decide labeling cadence based on month pixel width: 6 -> 3 -> 1
@@ -671,7 +689,7 @@ export default function InfiniteTimeline({ submissions = [], height = '70vh', ca
         const monthIndex = d.getUTCFullYear() * 12 + d.getUTCMonth();
         if (monthIndex % monthStep === 0) {
           ctx.save();
-          ctx.fillStyle = '#1e3a5f';
+          ctx.fillStyle = COLOR_TEXT;
           ctx.font = '600 12px ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto';
           ctx.textAlign = 'center';
           ctx.textBaseline = 'bottom';
@@ -687,7 +705,7 @@ export default function InfiniteTimeline({ submissions = [], height = '70vh', ca
 
       // Year labels when viewing months: show at January
       ctx.save();
-      ctx.fillStyle = '#1e3a5f';
+      ctx.fillStyle = COLOR_TEXT;
       ctx.font = '600 14px ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto';
       for (let d = new Date(monthStart); d.getTime() <= tEnd; d.setUTCMonth(d.getUTCMonth() + 1)) {
         if (d.getUTCMonth() === 0) {
@@ -719,7 +737,7 @@ export default function InfiniteTimeline({ submissions = [], height = '70vh', ca
             const x = timeToX(ts, width);
             // baseline tick
             ctx.save();
-            ctx.strokeStyle = 'rgba(30,58,95,0.35)';
+            ctx.strokeStyle = COLOR_TEXT + '59';
             ctx.beginPath();
             const h = opts.small ? 6 : 8;
             ctx.moveTo(x, midY - h);
@@ -732,10 +750,10 @@ export default function InfiniteTimeline({ submissions = [], height = '70vh', ca
               ctx.textAlign = 'center';
               ctx.textBaseline = 'top';
               if (opts.emph) {
-                ctx.fillStyle = '#1e3a5f';
+                ctx.fillStyle = COLOR_TEXT;
                 ctx.font = '600 12px ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto';
               } else {
-                ctx.fillStyle = '#4b5563';
+                ctx.fillStyle = COLOR_TEXT + '99';
                 ctx.font = '10px ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto';
               }
               ctx.fillText(label, x, midY + 10);
@@ -777,7 +795,7 @@ export default function InfiniteTimeline({ submissions = [], height = '70vh', ca
       if (tickSpec.unit === 'millennium') {
         ctx.save();
         const radius = 10;
-        ctx.fillStyle = '#1e3a5f';
+        ctx.fillStyle = COLOR_TEXT;
         ctx.beginPath();
         ctx.arc(x, midY, radius, 0, Math.PI * 2);
         ctx.fill();
@@ -791,10 +809,10 @@ export default function InfiniteTimeline({ submissions = [], height = '70vh', ca
         const tw = Math.ceil(metrics.width);
         const rx = x - (tw / 2) - padX;
         const ry = midY + 18;
-        ctx.fillStyle = 'rgba(250,246,240,0.85)';
+        ctx.fillStyle = COLOR_SURFACE;
         drawRoundedRect(ctx, rx, ry, tw + padX * 2, 22, 6);
         ctx.fill();
-        ctx.fillStyle = '#1e3a5f';
+        ctx.fillStyle = COLOR_TEXT;
         ctx.fillText(text, x, ry + padY);
         ctx.restore();
         tickPositionsRef.current.push({ x, label: text });
@@ -813,7 +831,7 @@ export default function InfiniteTimeline({ submissions = [], height = '70vh', ca
 
     if (points.length === 0) {
       ctx.save();
-      ctx.fillStyle = 'rgba(44,95,111,0.4)';
+      ctx.fillStyle = COLOR_TEXT + '66';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
       ctx.font = '600 14px ui-sans-serif, system-ui';
@@ -895,14 +913,14 @@ export default function InfiniteTimeline({ submissions = [], height = '70vh', ca
     buckets.forEach((b) => {
       const x = b.x;
       const size = Math.min(10 + b.items.length * 2, 28);
-      ctx.fillStyle = 'white';
-      ctx.strokeStyle = 'rgba(212,165,116,0.6)';
+      ctx.fillStyle = COLOR_SURFACE;
+      ctx.strokeStyle = COLOR_BORDER + '99';
       ctx.beginPath();
       ctx.arc(x, midY, size / 2, 0, Math.PI * 2);
       ctx.fill();
       ctx.stroke();
 
-      ctx.fillStyle = '#1e3a5f';
+      ctx.fillStyle = COLOR_TEXT;
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
       ctx.font = 'bold 10px ui-sans-serif, system-ui';
@@ -994,7 +1012,7 @@ export default function InfiniteTimeline({ submissions = [], height = '70vh', ca
         )}
         {/* Hover tooltip (uses cluster detection above) */}
         {/* Always-visible connectors and cards (one per bucket) */}
-        {layoutCards.map((lc, idx) => {
+        {visibleCards.map((lc, idx) => {
           const insidePx = 12; // how far the connector ends inside the card
           const distAboveTop = 160 + lc.level * 108; // distance from baseline to card top (above)
           const distBelowTop = 20 + lc.level * 108;  // distance from baseline to card top (below)
@@ -1086,10 +1104,10 @@ export default function InfiniteTimeline({ submissions = [], height = '70vh', ca
                   const imgUrl = buildPublicUrl(imgUrlRaw);
                   const isPeriod = !!((p.submission?.submission_content || []).find((c) => (c.type||'').toLowerCase() === 'timeframe' && c.metadata && Number.isFinite(c.metadata?.start_ts) && Number.isFinite(c.metadata?.end_ts)));
                   const style = p.style || {};
-                  const textColor = style?.colors?.text || '#1e3a5f';
-                  const subTextColor = style?.colors?.text ? style?.colors?.text : '#2c5f6f';
-                  const bgColor = style?.colors?.background || undefined;
-                  const borderColor = style?.colors?.border || undefined;
+                  const textColor = style?.colors?.text || 'var(--text)';
+                  const subTextColor = style?.colors?.text ? style?.colors?.text : 'var(--muted)';
+                  const bgColor = style?.colors?.background || 'var(--surface)';
+                  const borderColor = style?.colors?.border || 'var(--border)';
                   const align = (style?.textLayout || 'left').toLowerCase();
                   const alignClass = align === 'center' ? 'text-center' : align === 'right' ? 'text-right' : 'text-left';
                   const itemStyle = (style?.design?.itemStyle || 'card').toLowerCase();
@@ -1117,7 +1135,7 @@ export default function InfiniteTimeline({ submissions = [], height = '70vh', ca
                         </div>
                       )}
                       {(itemStyle === 'chat_bubble' || itemStyle === 'chat_square') && (
-                        <div className="inline-block px-3 py-2 m-3" style={{ backgroundColor: bgColor || 'rgba(255,255,255,0.95)', color: textColor, borderColor: borderColor || '#e3c292', borderStyle: cssBorderStyle, borderWidth: borderColor ? 2 : 1, borderRadius: itemStyle === 'chat_square' ? 10 : 9999, boxShadow, boxSizing: 'border-box' }}>
+                        <div className="inline-block px-3 py-2 m-3" style={{ backgroundColor: bgColor, color: textColor, borderColor: borderColor, borderStyle: cssBorderStyle, borderWidth: borderColor ? 2 : 1, borderRadius: itemStyle === 'chat_square' ? 10 : 9999, boxShadow, boxSizing: 'border-box' }}>
                           <div className="font-semibold truncate max-w-[280px] flex items-center gap-2">{isPeriod && (<span className="inline-block text-[10px] px-1.5 py-0.5 rounded-full bg-[#2c5f6f] text-white">Period</span>)}<span className="truncate">{title}</span></div>
                           {desc && <div className="truncate max-w-[280px]" style={{ color: subTextColor }}>{desc}</div>
                           }
@@ -1125,9 +1143,9 @@ export default function InfiniteTimeline({ submissions = [], height = '70vh', ca
                         </div>
                       )}
                       {itemStyle === 'card' && (
-                        <div className="w-[296px] rounded-md p-2 m-3" style={{ backgroundColor: bgColor || 'rgba(255,255,255,0.95)', borderColor: borderColor || '#e3c292', borderStyle: cssBorderStyle, borderWidth: borderColor ? 2 : 1, color: textColor, boxShadow, boxSizing: 'border-box' }}>
+                        <div className="w-[296px] rounded-md p-2 m-3" style={{ backgroundColor: bgColor, borderColor: borderColor, borderStyle: cssBorderStyle, borderWidth: borderColor ? 2 : 1, color: textColor, boxShadow, boxSizing: 'border-box' }}>
                           <div className="flex items-start gap-3">
-                            {imgUrl && <img src={imgUrl} alt="thumb" className="w-12 h-12 rounded object-cover" style={{ borderColor: borderColor || '#e3c292', borderStyle: cssBorderStyle, borderWidth: borderColor ? 2 : 1, boxSizing: 'border-box' }} />}
+                            {imgUrl && <img src={imgUrl} alt="thumb" loading="lazy" className="w-12 h-12 rounded object-cover" style={{ borderColor: borderColor, borderStyle: cssBorderStyle, borderWidth: borderColor ? 2 : 1, boxSizing: 'border-box' }} />}
                             <div className="min-w-0">
                               <div className="font-semibold truncate flex items-center gap-2">{isPeriod && (<span className="inline-block text-[10px] px-1.5 py-0.5 rounded-full bg-[#2c5f6f] text-white">Period</span>)}<span className="truncate">{title}</span></div>
                               {desc && <div className="truncate" style={{ color: subTextColor }}>{desc}</div>}

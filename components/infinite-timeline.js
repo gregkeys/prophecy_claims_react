@@ -15,11 +15,27 @@ export default function InfiniteTimeline({ submissions = [], height = '70vh', ca
   const [panX, setPanX] = useState(0);
   const [scale, setScale] = useState(1); // 1 = base; higher = zoom in
   const [hoverInfo, setHoverInfo] = useState(null);
+  const [hoverTick, setHoverTick] = useState(null); // { x, label }
   const [dragging, setDragging] = useState(false);
   const dragStartRef = useRef({ x: 0, panAtStart: 0 });
   const movedRef = useRef(false);
   const pointerDownOnCanvasRef = useRef(false);
   const autoFramedRef = useRef(false);
+
+  // Throttled state commits for pan/zoom
+  const rafCommitRef = useRef(null);
+  const nextPanRef = useRef(panX);
+  const nextScaleRef = useRef(scale);
+  useEffect(() => { nextPanRef.current = panX; }, [panX]);
+  useEffect(() => { nextScaleRef.current = scale; }, [scale]);
+  const requestCommit = () => {
+    if (rafCommitRef.current) return;
+    rafCommitRef.current = requestAnimationFrame(() => {
+      rafCommitRef.current = null;
+      setPanX(nextPanRef.current);
+      setScale(nextScaleRef.current);
+    });
+  };
 
   // Convert submissions to timeline points with timestamp
   const points = useMemo(() => {
@@ -327,6 +343,9 @@ export default function InfiniteTimeline({ submissions = [], height = '70vh', ca
     return { unit: baseUnit, stepMs, fmt };
   }, [msPerPx]);
 
+  // Keep a list of tick positions/labels for hover detection
+  const tickPositionsRef = useRef([]);
+
   // Layout-based measurement (track DPR + width) using effect (avoids SSR warnings)
   useEffect(() => {
     const measure = () => {
@@ -341,7 +360,7 @@ export default function InfiniteTimeline({ submissions = [], height = '70vh', ca
     return () => window.removeEventListener('resize', measure);
   }, []);
 
-  // Wheel zoom / pan
+  // Wheel zoom / pan (throttled with RAF)
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -354,26 +373,28 @@ export default function InfiniteTimeline({ submissions = [], height = '70vh', ca
       const worldBefore = xToTime(mouseX, width);
 
       const zoomFactor = e.deltaY < 0 ? 1.05 : 0.95;
-      const nextScale = Math.max(getMinScale(width), Math.min(getMaxScale(width), scale * zoomFactor));
+      const nextScale = Math.max(getMinScale(width), Math.min(getMaxScale(width), nextScaleRef.current * zoomFactor));
       const nextMsPerPx = baseMsPerPx / nextScale;
 
       // Adjust pan to keep mouse anchor at same world time
-      const worldAfterX = (worldBefore - (domain.min + domain.max) / 2) / nextMsPerPx + width / 2 + panX;
+      const worldAfterX = (worldBefore - (domain.min + domain.max) / 2) / nextMsPerPx + width / 2 + nextPanRef.current;
       const deltaX = mouseX - worldAfterX;
-      setPanX((p) => p + deltaX);
-      setScale(nextScale);
+      nextPanRef.current = nextPanRef.current + deltaX;
+      nextScaleRef.current = nextScale;
+      requestCommit();
     };
 
     const onPointerDown = (e) => {
       dragging || setDragging(true);
-      dragStartRef.current = { x: e.clientX, panAtStart: panX };
+      dragStartRef.current = { x: e.clientX, panAtStart: nextPanRef.current };
       movedRef.current = false;
       pointerDownOnCanvasRef.current = true;
     };
     const onPointerMove = (e) => {
       if (!dragging) return;
       const dx = e.clientX - dragStartRef.current.x;
-      setPanX(dragStartRef.current.panAtStart + dx);
+      nextPanRef.current = dragStartRef.current.panAtStart + dx;
+      requestCommit();
       if (Math.abs(dx) > 4) {
         movedRef.current = true;
         // Close any open tool while the timeline is being moved
@@ -404,7 +425,7 @@ export default function InfiniteTimeline({ submissions = [], height = '70vh', ca
       window.removeEventListener('pointermove', onPointerMove);
       window.removeEventListener('pointerup', onPointerUp);
     };
-  }, [baseMsPerPx, domain.max, domain.min, dragging, panX, scale, xToTime, canEdit]);
+  }, [baseMsPerPx, domain.max, domain.min, dragging, xToTime, canEdit, getMaxScale, getMinScale]);
 
   // Auto-center and auto-zoom once when data and container are ready
   useEffect(() => {
@@ -414,11 +435,11 @@ export default function InfiniteTimeline({ submissions = [], height = '70vh', ca
     if (width === 0) return;
     const span = Math.max(1, domain.max - domain.min);
     const targetMsPerPx = span / (width * 0.7); // fit 70% of width
-    const targetScale = Math.min(getMaxScale(width), Math.max(getMinScale(width), baseMsPerPx / targetMsPerPx));
-    setScale(targetScale);
-    setPanX(0);
+    nextScaleRef.current = Math.min(getMaxScale(width), Math.max(getMinScale(width), baseMsPerPx / targetMsPerPx));
+    nextPanRef.current = 0;
+    requestCommit();
     autoFramedRef.current = true;
-  }, [baseMsPerPx, containerRef, domain.max, domain.min, points.length]);
+  }, [baseMsPerPx, containerRef, domain.max, domain.min, points.length, getMaxScale, getMinScale]);
 
   // Render
   useEffect(() => {
@@ -435,6 +456,9 @@ export default function InfiniteTimeline({ submissions = [], height = '70vh', ca
     const ctx = canvas.getContext('2d');
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.clearRect(0, 0, width, heightPx);
+
+    // Reset tick positions for hover detection
+    tickPositionsRef.current = [];
 
     // Background
     ctx.fillStyle = '#faf6f0';
@@ -551,6 +575,8 @@ export default function InfiniteTimeline({ submissions = [], height = '70vh', ca
         ctx.fillStyle = '#1e3a5f';
         ctx.fillText(yearText, x, ry + padY);
         ctx.restore();
+        // store for hover
+        tickPositionsRef.current.push({ x, label: yearText });
       }
     };
 
@@ -645,6 +671,8 @@ export default function InfiniteTimeline({ submissions = [], height = '70vh', ca
           const monthName = MONTH_SHORT[d.getUTCMonth()];
           ctx.fillText(monthName, cx, topY - 6);
           ctx.restore();
+          // store for hover
+          tickPositionsRef.current.push({ x: cx, label: `${monthName} ${d.getUTCFullYear()}` });
         }
       }
       ctx.restore();
@@ -658,7 +686,9 @@ export default function InfiniteTimeline({ submissions = [], height = '70vh', ca
           const x = timeToX(d.getTime(), width);
           ctx.textAlign = 'center';
           ctx.textBaseline = 'top';
-          ctx.fillText(String(d.getUTCFullYear()), x, midY + 22);
+          const yText = String(d.getUTCFullYear());
+          ctx.fillText(yText, x, midY + 22);
+          tickPositionsRef.current.push({ x, label: yText });
         }
       }
       ctx.restore();
@@ -702,6 +732,7 @@ export default function InfiniteTimeline({ submissions = [], height = '70vh', ca
               }
               ctx.fillText(label, x, midY + 10);
               ctx.restore();
+              tickPositionsRef.current.push({ x, label });
             }
           };
 
@@ -758,6 +789,7 @@ export default function InfiniteTimeline({ submissions = [], height = '70vh', ca
         ctx.fillStyle = '#1e3a5f';
         ctx.fillText(text, x, ry + padY);
         ctx.restore();
+        tickPositionsRef.current.push({ x, label: text });
       } else if (tickSpec.unit === 'year') {
         // Year ticks/labels are handled by drawYearTicks() for calendar alignment.
         // Skip here to avoid duplicate or drifted (365-day) spacing.
@@ -884,8 +916,15 @@ export default function InfiniteTimeline({ submissions = [], height = '70vh', ca
         }
       });
       setHoverInfo(found);
+      // Tick hover
+      const near = tickPositionsRef.current.reduce((acc, t) => {
+        const dx = Math.abs(t.x - x);
+        return dx < (acc?.dx ?? Infinity) ? { ...t, dx } : acc;
+      }, null);
+      if (near && Math.abs(midY - y) < 26 && near.dx <= 8) setHoverTick({ x: Math.round(near.x), label: near.label });
+      else setHoverTick(null);
     };
-    const onLeave = () => setHoverInfo(null);
+    const onLeave = () => { setHoverInfo(null); setHoverTick(null); };
     const onClick = (e) => {
       if (!onOpenSubmission) return;
       const rect2 = canvas.getBoundingClientRect();
@@ -923,6 +962,15 @@ export default function InfiniteTimeline({ submissions = [], height = '70vh', ca
     <div className="w-full relative">
       <div ref={containerRef} className="relative w-full" style={{ height }}>
         <canvas ref={canvasRef} className="w-full h-full rounded-lg shadow-sm bg-[#faf6f0]" />
+        {/* Hovered tick highlight & tooltip */}
+        {hoverTick && (
+          <div className="absolute pointer-events-none" style={{ left: `${hoverTick.x - 6}px`, top: 'calc(50% - 6px)' }}>
+            <div className="w-3 h-3 rounded-full" style={{ boxShadow: '0 0 12px rgba(30,58,95,0.6)', backgroundColor: '#1e3a5f' }} />
+            <div className="absolute -left-1/2 -translate-x-1/2 -top-7 text-[10px] bg-white/90 border border-[#e3c292]/60 rounded px-2 py-1 whitespace-nowrap">
+              {hoverTick.label}
+            </div>
+          </div>
+        )}
         {canEdit && tool && (
           <RadialTool
             key={tool.id}
@@ -1028,6 +1076,7 @@ export default function InfiniteTimeline({ submissions = [], height = '70vh', ca
                   const dateStr = new Date(p.ts).toLocaleDateString();
                   const imgUrlRaw = img?.file_path || (img?.content || '');
                   const imgUrl = buildPublicUrl(imgUrlRaw);
+                  const isPeriod = !!((p.submission?.submission_content || []).find((c) => (c.type||'').toLowerCase() === 'timeframe' && c.metadata && Number.isFinite(c.metadata?.start_ts) && Number.isFinite(c.metadata?.end_ts)));
                   const style = p.style || {};
                   const textColor = style?.colors?.text || '#1e3a5f';
                   const subTextColor = style?.colors?.text ? style?.colors?.text : '#2c5f6f';
@@ -1038,7 +1087,7 @@ export default function InfiniteTimeline({ submissions = [], height = '70vh', ca
                   const itemStyle = (style?.design?.itemStyle || 'card').toLowerCase();
                   const borderStyleRaw = (style?.design?.borderStyle || 'solid').toString().toLowerCase().replace(/_/g, ' ');
                   const cssBorderStyle = ['solid','dashed','dotted'].includes(borderStyleRaw) ? borderStyleRaw : (borderColor ? 'solid' : 'none');
-                  const boxShadow = borderStyleRaw === 'drop shadow' ? `0 6px 14px ${borderColor || '#00000055'}` : borderStyleRaw === 'glow' ? `0 0 16px ${borderColor || '#00000055'}` : undefined;
+                  const boxShadow = borderStyleRaw === 'drop shadow' ? `0 8px 18px ${borderColor || 'rgba(0,0,0,0.18)'}` : borderStyleRaw === 'glow' ? `0 0 18px ${borderColor || 'rgba(0,0,0,0.22)'}` : '0 6px 14px rgba(0,0,0,0.08)';
                   return (
                     <div key={p.id} className={`cursor-pointer hover:opacity-90 ${alignClass}`} onClick={() => onOpenSubmission && onOpenSubmission(p.id)} role="button" tabIndex={0} onKeyDown={(e) => { if (e.key === 'Enter') onOpenSubmission && onOpenSubmission(p.id); }}>
                       {itemStyle === 'marker' && (
@@ -1056,13 +1105,14 @@ export default function InfiniteTimeline({ submissions = [], height = '70vh', ca
                       )}
                       {itemStyle === 'marker_text' && (
                         <div className="inline-block px-2 py-1 rounded m-3" style={{ backgroundColor: bgColor || 'transparent', borderColor: borderColor || '#e3c292', borderStyle: cssBorderStyle, borderWidth: borderColor ? 2 : 1, color: textColor, boxShadow, boxSizing: 'border-box' }}>
-                          <div className="font-semibold truncate max-w-[280px]">{title}</div>
+                          <div className="font-semibold truncate max-w-[280px] flex items-center gap-2"><span className={`inline-block text-[10px] px-1.5 py-0.5 rounded-full ${isPeriod ? 'bg-[#2c5f6f] text-white' : 'bg-[#d4a574] text-[#1e3a5f]'}`}>{isPeriod ? 'Period' : 'Event'}</span><span className="truncate">{title}</span></div>
                         </div>
                       )}
                       {(itemStyle === 'chat_bubble' || itemStyle === 'chat_square') && (
                         <div className="inline-block px-3 py-2 m-3" style={{ backgroundColor: bgColor || 'rgba(255,255,255,0.95)', color: textColor, borderColor: borderColor || '#e3c292', borderStyle: cssBorderStyle, borderWidth: borderColor ? 2 : 1, borderRadius: itemStyle === 'chat_square' ? 10 : 9999, boxShadow, boxSizing: 'border-box' }}>
-                          <div className="font-semibold truncate max-w-[280px]">{title}</div>
-                          {desc && <div className="truncate max-w-[280px]" style={{ color: subTextColor }}>{desc}</div>}
+                          <div className="font-semibold truncate max-w-[280px] flex items-center gap-2"><span className={`inline-block text-[10px] px-1.5 py-0.5 rounded-full ${isPeriod ? 'bg-[#2c5f6f] text-white' : 'bg-[#d4a574] text-[#1e3a5f]'}`}>{isPeriod ? 'Period' : 'Event'}</span><span className="truncate">{title}</span></div>
+                          {desc && <div className="truncate max-w-[280px]" style={{ color: subTextColor }}>{desc}</div>
+                          }
                           <div className="text-[10px] mt-0.5" style={{ color: subTextColor }}>{dateStr}</div>
                         </div>
                       )}
@@ -1071,7 +1121,7 @@ export default function InfiniteTimeline({ submissions = [], height = '70vh', ca
                           <div className="flex items-start gap-3">
                             {imgUrl && <img src={imgUrl} alt="thumb" className="w-12 h-12 rounded object-cover" style={{ borderColor: borderColor || '#e3c292', borderStyle: cssBorderStyle, borderWidth: borderColor ? 2 : 1, boxSizing: 'border-box' }} />}
                             <div className="min-w-0">
-                              <div className="font-semibold truncate">{title}</div>
+                              <div className="font-semibold truncate flex items-center gap-2"><span className={`inline-block text-[10px] px-1.5 py-0.5 rounded-full ${isPeriod ? 'bg-[#2c5f6f] text-white' : 'bg-[#d4a574] text-[#1e3a5f]'}`}>{isPeriod ? 'Period' : 'Event'}</span><span className="truncate">{title}</span></div>
                               {desc && <div className="truncate" style={{ color: subTextColor }}>{desc}</div>}
                               <div className="text-[10px] mt-0.5" style={{ color: subTextColor }}>{dateStr}</div>
                             </div>
@@ -1089,9 +1139,9 @@ export default function InfiniteTimeline({ submissions = [], height = '70vh', ca
       {/* Controls bottom-right */}
       <div className="absolute right-4 bottom-4 z-20 flex items-center gap-3 bg-white/70 backdrop-blur-sm border border-[#e3c292]/60 rounded-full shadow-md px-3 py-2" style={{ right: '24px', bottom: 'calc(env(safe-area-inset-bottom, 0px) + 56px)' }}>
         <div className="text-xs text-[#2c5f6f] hidden sm:block">Scale {scale.toFixed(2)}</div>
-        <button className="prophecy-button-sm px-4 py-2 rounded-full text-sm" onClick={() => setScale((s) => Math.min(getMaxScale(), s * 1.2))}>Zoom In</button>
-        <button className="prophecy-button-sm px-4 py-2 rounded-full text-sm" onClick={() => setScale((s) => Math.max(MIN_SCALE, s / 1.2))}>Zoom Out</button>
-        <button className="prophecy-button-sm px-4 py-2 rounded-full text-sm" onClick={() => { setScale(1); setPanX(0); }}>Reset</button>
+        <button className="prophecy-button-sm px-4 py-2 rounded-full text-sm" onClick={() => { nextScaleRef.current = Math.min(getMaxScale(), scale * 1.2); requestCommit(); }}>Zoom In</button>
+        <button className="prophecy-button-sm px-4 py-2 rounded-full text-sm" onClick={() => { nextScaleRef.current = Math.max(MIN_SCALE, scale / 1.2); requestCommit(); }}>Zoom Out</button>
+        <button className="prophecy-button-sm px-4 py-2 rounded-full text-sm" onClick={() => { nextScaleRef.current = 1; nextPanRef.current = 0; requestCommit(); }}>Reset</button>
       </div>
     </div>
   );

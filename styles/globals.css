@@ -21,11 +21,12 @@
   --prophecy-sky-gradient: linear-gradient(135deg, #1e3a5f 0%, #2c5f6f 50%, #87ceeb 100%);
   --prophecy-sunset-gradient: linear-gradient(135deg, #e89547 0%, #d4a574 50%, #f4d03f 100%);
   --prophecy-divine-gradient: linear-gradient(135deg, #1e3a5f 0%, #d4a574 100%);
+  --gold-gradient: linear-gradient(135deg, #b38600 0%, #ffd700 50%, #ffec8b 100%);
 
   /* App tokens */
-  --bg: var(--prophecy-cream);
+  --bg: #ffffff;
   --surface: #ffffff;
-  --text: var(--prophecy-deep-blue);
+  --text: #000000;
   --muted: var(--prophecy-teal);
   --accent: var(--prophecy-golden);
   --border: #e3c292;
@@ -99,12 +100,13 @@ body {
 
 /* Custom components */
 .prophecy-gradient-text {
-  background: var(--prophecy-sunset-gradient);
+  background: var(--gold-gradient);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
 }
 
+/* Primary gradient button (legacy) */
 .prophecy-button {
   background: var(--prophecy-sunset-gradient);
   color: white;
@@ -121,6 +123,36 @@ body {
 .prophecy-button:hover {
   transform: translateY(-2px);
   box-shadow: 0 8px 25px rgba(212, 165, 116, 0.4);
+}
+
+/* New button variants */
+.btn-blue {
+  background: #0038b8; /* Israeli blue */
+  color: #ffffff;
+  border: none;
+  padding: 0.75rem 1.5rem;
+  border-radius: 9999px;
+  font-weight: 600;
+  transition: all 0.2s ease;
+}
+
+.btn-blue:hover {
+  filter: brightness(0.95);
+}
+
+.btn-white {
+  background: #ffffff;
+  color: #000000;
+  border: 2px solid #000000;
+  padding: 0.75rem 1.5rem;
+  border-radius: 9999px;
+  font-weight: 600;
+  transition: all 0.2s ease;
+}
+
+.btn-white:hover {
+  background: #000000;
+  color: #ffffff;
 }
 
 .prophecy-card {
@@ -143,9 +175,9 @@ body {
 
 /* Force light theme regardless of OS when data-theme="light" */
 :root[data-theme='light'] {
-  --bg: var(--prophecy-cream);
+  --bg: #ffffff;
   --surface: #ffffff;
-  --text: var(--prophecy-deep-blue);
+  --text: #000000;
   --muted: var(--prophecy-teal);
   --accent: var(--prophecy-golden);
   --border: #e3c292;

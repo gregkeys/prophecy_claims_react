@@ -35,26 +35,26 @@ function Header() {
   }
 
   return (
-    <nav className="w-full bg-[#1e3a5f] text-[#faf6f0] border-b border-[#2c5f6f]">
+    <nav className="w-full bg-[#0038b8] text-white border-b border-[#002a8f]">
       <div className="max-w-7xl mx-auto px-4 py-3 grid grid-cols-3 items-center">
         <div className="flex items-center gap-3">
           <Link href="/" className="font-display text-xl font-bold prophecy-gradient-text">Prophecy.Claims</Link>
         </div>
         <div className="flex items-center justify-center">
-          <div className="bg-gradient-to-r from-[#e89547] to-[#f4d03f] text-[#1e3a5f] px-3 py-1 rounded-full text-xs font-semibold shadow">
+          <div className="bg-white/10 text-white px-3 py-1 rounded-full text-xs font-semibold shadow">
             <span className="mr-2">🚧</span>
             BETA • Features in active development
             <span className="ml-2">🚧</span>
           </div>
         </div>
         <div className="flex items-center justify-end gap-4">
-          <Link href="/timelines" className="hover:text-[#d4a574]">Timelines</Link>
-          {!session && <Link href="/login" className="prophecy-button-sm px-3 py-1 text-sm">Login</Link>}
+          <Link href="/timelines" className="hover:opacity-80">Timelines</Link>
+          {!session && <Link href="/login" className="btn-white px-3 py-1 text-sm">Login</Link>}
           {session && (
             <>
-              <Link href="/dashboard" className="prophecy-button-sm px-3 py-1 text-sm">Dashboard</Link>
+              <Link href="/dashboard" className="btn-white px-3 py-1 text-sm">Dashboard</Link>
               <span className="text-xs opacity-80">{role}</span>
-              <button onClick={handleLogout} className="bg-white/10 border border-white/20 rounded-full px-3 py-1 text-sm hover:bg-white/20">Logout</button>
+              <button onClick={handleLogout} className="btn-white px-3 py-1 text-sm">Logout</button>
             </>
           )}
         </div>
